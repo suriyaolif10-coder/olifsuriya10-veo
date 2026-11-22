@@ -272,8 +272,6 @@ h1 { font-size: 18px; margin: 0; font-weight: 600; }
 
 /* ---------- การเคลื่อนไหวในห้อง ---------- */
 #officer { cursor: pointer; }
-.officer-body.walking { animation: step .42s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
-@keyframes step { 0%, 100% { transform: translateY(0) rotate(-1.6deg); } 50% { transform: translateY(-9px) rotate(1.6deg); } }
 #tagLayer .tag { animation: float 3.2s ease-in-out infinite; transform-box: fill-box; }
 #tagLayer .desk-hit:nth-child(2) .tag { animation-delay: -.8s; }
 #tagLayer .desk-hit:nth-child(3) .tag { animation-delay: -1.6s; }
@@ -284,7 +282,7 @@ h1 { font-size: 18px; margin: 0; font-weight: 600; }
 .bubble { animation: pop .25s ease-out both; transform-box: fill-box; transform-origin: 50% 100%; }
 @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
-  .officer-body.walking, #tagLayer .tag, #tagLayer .tag.nudge, .bubble { animation: none; }
+  #tagLayer .tag, #tagLayer .tag.nudge, .bubble { animation: none; }
 }
 
 /* ---------- อารมณ์เจ้าหน้าที่ ---------- */

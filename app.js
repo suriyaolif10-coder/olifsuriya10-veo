@@ -310,11 +310,16 @@
         <g id="boardLayer"></g>
         <g id="officer" class="desk-hit" data-boss="1" aria-hidden="true">
           <ellipse cx="0" cy="-4" rx="70" ry="16" fill="rgba(0,0,0,.35)"/>
-          <g class="officer-body"><image href="assets/officer.png" x="${-OFF.w / 2}" y="${-OFF.h}" width="${OFF.w}" height="${OFF.h}"/></g>
+          <g id="offFlip">
+            <g id="offLegR"><image href="assets/officer-legL.png" x="${-OFF.w / 2 + 33 + 44}" y="${-OFF.h + 250}" width="52" height="218"/></g>
+            <g id="offLegL"><image href="assets/officer-legL.png" x="${-OFF.w / 2 + 33}" y="${-OFF.h + 250}" width="52" height="218"/></g>
+            <g id="offTorso"><image href="assets/officer-torso.png" x="${-OFF.w / 2}" y="${-OFF.h}" width="182" height="273"/></g>
+          </g>
         </g>
         <g id="tagLayer"></g>
         <g id="bubbleLayer" pointer-events="none"></g>`;
       placeOfficer(officer.x, officer.y);
+      setRig(0, 0);
     }
     svg.querySelector("#boardLayer").innerHTML = boardPanel();
     const staff4 = state.staff.slice(0, MAX_STAFF);
@@ -344,7 +349,24 @@
   }
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+  // ท่าเดิน: ยกเท้าสลับ แกว่งขา ตัวขึ้นลงและเอียงเล็กน้อย หันตามทิศที่เดิน
+  const HIP_L = [-33, -210], HIP_R = [11, -210];
+  let facing = 0; // -1 ซ้าย, 1 ขวา, 0 เดินตรง
+  function setRig(phase, amp) {
+    const sn = Math.sin(phase);
+    const liftL = Math.max(0, sn) * 20 * amp, liftR = Math.max(0, -sn) * 20 * amp;
+    const swing = 7 * sn * amp;
+    const bob = -Math.abs(Math.cos(phase)) * 6 * amp;
+    const roll = 2.2 * sn * amp + 3 * facing * amp, sway = 2.5 * sn * amp; // เอนตัวไปทางที่เดิน
+    const L = document.getElementById("offLegL"), R = document.getElementById("offLegR"), T = document.getElementById("offTorso"), F = document.getElementById("offFlip");
+    if (!L) return;
+    L.setAttribute("transform", `translate(0,${(-liftL).toFixed(1)}) rotate(${swing.toFixed(2)},${HIP_L[0]},${HIP_L[1]})`);
+    R.setAttribute("transform", `translate(0,${(-liftR).toFixed(1)}) rotate(${(-swing).toFixed(2)},${HIP_R[0]},${HIP_R[1]})`);
+    T.setAttribute("transform", `translate(${sway.toFixed(1)},${bob.toFixed(1)}) rotate(${roll.toFixed(2)},0,-215)`);
+  }
+
   function walkTo(tx, ty, token) {
+    // เดินตามทางเดิน: ออกมาที่ทางเดินกลาง เดินตามแนวทางเดิน แล้วค่อยเข้าไปที่โต๊ะ
     const pts = [[officer.x, officer.y]];
     if (Math.abs(officer.y - ty) > 20) { pts.push([AISLE_X, officer.y]); pts.push([AISLE_X, ty]); }
     pts.push([tx, ty]);
@@ -356,19 +378,25 @@
     const total = segs.reduce((t, sg) => t + sg.d, 0);
     if (!total) return Promise.resolve();
     if (reduceMotion) { placeOfficer(tx, ty); return Promise.resolve(); }
-    const dur = Math.max(500, total / 0.32); // ~320 หน่วยต่อวินาที
-    const body = document.querySelector("#officer .officer-body");
-    body && body.classList.add("walking");
+    const dur = Math.max(700, total / 0.26);   // ความเร็วเดินปกติ
+    const STRIDE = 58;                           // ระยะต่อก้าว
     return new Promise(res => {
       const t0 = performance.now();
       const step = now => {
-        if (token !== officer.token) { body && body.classList.remove("walking"); return res(); }
-        let dist = Math.min(1, (now - t0) / dur) * total;
+        if (token !== officer.token) { setRig(0, 0); return res(); }
+        const t = Math.min(1, (now - t0) / dur);
+        const prog = 0.5 - 0.5 * Math.cos(Math.PI * t);      // ออกตัวช้า-หยุดนุ่ม
+        const amp = Math.min(1, Math.sin(Math.PI * t) * 2.2);
+        let dist = prog * total;
+        const travelled = dist;
         let i = 0; while (i < segs.length - 1 && dist > segs[i].d) { dist -= segs[i].d; i++; }
         const sg = segs[i], k = Math.min(1, dist / sg.d);
-        placeOfficer(sg.a[0] + (sg.b[0] - sg.a[0]) * k, sg.a[1] + (sg.b[1] - sg.a[1]) * k);
-        if (now - t0 < dur) requestAnimationFrame(step);
-        else { placeOfficer(tx, ty); body && body.classList.remove("walking"); res(); }
+        const dx = sg.b[0] - sg.a[0];
+        facing = Math.abs(dx) > 8 ? (dx < 0 ? -1 : 1) : 0;
+        placeOfficer(sg.a[0] + dx * k, sg.a[1] + (sg.b[1] - sg.a[1]) * k);
+        setRig(travelled / STRIDE * Math.PI, amp);
+        if (t < 1) requestAnimationFrame(step);
+        else { placeOfficer(tx, ty); setRig(0, 0); res(); }
       };
       requestAnimationFrame(step);
     });
