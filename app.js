@@ -601,6 +601,175 @@
 
   function renderAll() {
     renderHeader(); renderSummary(); renderRoom(); renderStaffList(); renderDueList(); renderLog(); renderFocus();
+    if (!$("#reportView").hidden) renderReport();
+  }
+
+  /* ---------------- หน้าสรุปเสนอผู้บังคับบัญชา (โทนสว่าง พิมพ์ได้) ---------------- */
+  const STATUS_SOFT = { none: "ยังไม่ส่ง", doing: "อยู่ระหว่างดำเนินการ", sent: "ส่งแล้ว", ok: "ตรวจสอบแล้ว", late: "เกินกำหนด" };
+  const thDateFull = d => `${d.getDate()} ${TH_MONTHS[d.getMonth()]} ${d.getFullYear() + 543}`;
+  function reportExtra() {
+    state.reportMeta = state.reportMeta || {};
+    return (state.reportMeta[mk()] = state.reportMeta[mk()] || { budget: "", comment: "" });
+  }
+
+  function reportData() {
+    const all = state.reports.filter(r => state.staff.some(s => s.id === r.staffId));
+    const eff = all.map(effective);
+    const done = eff.filter(x => x === "sent" || x === "ok").length;
+    const ok = eff.filter(x => x === "ok").length;
+    const late = all.filter(r => effective(r) === "late");
+    const pct = all.length ? Math.round(done / all.length * 100) : 0;
+    const focus = FOCUS.map(f => {
+      const r = state.reports.find(x => x.focus === f.k && state.staff.some(s => s.id === x.staffId));
+      return { f, r, owner: r && state.staff.find(s => s.id === r.staffId), lv: r ? levelOf(r) : "", eff: r ? effective(r) : "" };
+    });
+    return { all, done, ok, late, pct, focus };
+  }
+
+  function autoRecommend(d) {
+    const out = [];
+    if (d.late.length) {
+      const byStaff = {};
+      d.late.forEach(r => { const n = (state.staff.find(s => s.id === r.staffId) || {}).name || "-"; (byStaff[n] = byStaff[n] || []).push(r.title); });
+      out.push(`เร่งรัดรายงานที่เกินกำหนด ${d.late.length} เรื่อง (${Object.entries(byStaff).map(([n, t]) => `${n} ${t.length} เรื่อง`).join(", ")}) ให้แล้วเสร็จโดยเร็ว`);
+    }
+    const low = d.focus.filter(x => x.lv === "C" || x.lv === "D");
+    if (low.length) out.push(`ประเด็นเน้นย้ำที่อยู่ระดับ C/D: ${low.map(x => x.f.no ? `ประเด็นที่ ${x.f.no} (${x.f.code})` : x.f.code).join(", ")} จะติดตามและให้คำแนะนำผู้รับผิดชอบอย่างใกล้ชิด`);
+    const noLv = d.focus.filter(x => x.r && !x.lv);
+    if (noLv.length) out.push(`อยู่ระหว่างรอผลการประเมินระดับ ${noLv.length} ประเด็น`);
+    if (!out.length) out.push("การรายงานเป็นไปตามกำหนด ไม่มีเรื่องค้างดำเนินการ");
+    return out;
+  }
+
+  function renderReport() {
+    const d = reportData(), meta = reportExtra();
+    const { list, fy } = fiscalMonths();
+    const curKey = mk();
+    const monthTxt = `${TH_MONTHS[viewDate.getMonth()]} ${viewDate.getFullYear() + 543}`;
+    const lvChip = l => l ? `<span class="lv lv-${l}">${l}</span>` : `<span class="lv lv-none">–</span>`;
+    const stChip = k => `<span class="st st-${k}">${STATUS_SOFT[k] || "-"}</span>`;
+    const counts = { A: 0, B: 0, C: 0, D: 0 };
+    d.focus.forEach(x => { if (x.lv) counts[x.lv]++; });
+
+    const focusRows = d.focus.map((x, i) => `<tr>
+      <td class="c">${i + 1}</td>
+      <td><b>${x.f.no ? `ประเด็นที่ ${x.f.no} (${esc(x.f.code)})` : esc(x.f.code)}</b><br><span class="muted">${esc(x.f.title)}</span></td>
+      <td>${x.owner ? esc(x.owner.name) : '<span class="muted">ยังไม่มอบหมาย</span>'}</td>
+      <td>${x.r ? stChip(x.eff) : "-"}</td>
+      <td class="c">${lvChip(x.lv)}</td>
+      <td><div class="trend">${list.map(m => { const key = monthKey(m), l = x.r ? levelOf(x.r, key) : ""; return `<span class="tc ${l ? "lv-" + l : ""} ${key === curKey ? "cur" : ""}" title="${TH_MONTHS[m.getMonth()]}">${l || ""}</span>`; }).join("")}</div></td>
+    </tr>`).join("");
+
+    const staffRows = state.staff.map((s, i) => {
+      const rs = reportsOf(s.id), e = rs.map(effective);
+      const dn = e.filter(x => x === "sent" || x === "ok").length, lt = e.filter(x => x === "late").length;
+      const st = deskStatus(s);
+      return `<tr><td class="c">${i + 1}</td><td><b>${esc(s.name)}</b></td><td class="c">${rs.length}</td><td class="c">${dn}</td>
+        <td class="c ${lt ? "bad" : ""}">${lt}</td><td class="c">${rs.length ? Math.round(dn / rs.length * 100) : 0}%</td><td>${esc(st.text)}</td></tr>`;
+    }).join("");
+
+    const lateRows = d.late.length ? d.late.sort((a, b) => a.dueDay - b.dueDay).map((r, i) => {
+      const s = state.staff.find(x => x.id === r.staffId);
+      return `<tr><td class="c">${i + 1}</td><td>${esc(r.title)}</td><td>${esc(s ? s.name : "-")}</td><td>${fmtDue(r)}</td><td class="bad">${esc(dueText(r))}</td><td>${esc(entry(r).note || "-")}</td></tr>`;
+    }).join("") : `<tr><td colspan="6" class="c muted">ไม่มีรายงานค้างส่ง</td></tr>`;
+
+    $("#rvPaper").innerHTML = `
+      <header class="p-head">
+        <div class="p-kicker">${esc(((state.office.sub || "").split("·")[0].trim()) || "สำนักงานพัฒนาชุมชนอำเภอ")}</div>
+        <h1>สรุปผลการติดตามรายงานประจำเดือน ${monthTxt}</h1>
+        <div class="p-meta">ปีงบประมาณ พ.ศ. ${fy} · ข้อมูล ณ วันที่ ${thDateFull(new Date())}</div>
+        <div class="p-to"><b>เรียน</b> พัฒนาการจังหวัด</div>
+      </header>
+
+      <section>
+        <h2>1. ภาพรวมการรายงาน</h2>
+        <div class="kpis">
+          <div class="kpi"><span>รายงานทั้งหมด</span><b>${d.all.length}</b><small>เรื่อง</small></div>
+          <div class="kpi good"><span>ส่งแล้ว</span><b>${d.done}</b><small>คิดเป็นร้อยละ ${d.pct}</small></div>
+          <div class="kpi"><span>ตรวจสอบแล้ว</span><b>${d.ok}</b><small>เรื่อง</small></div>
+          <div class="kpi ${d.late.length ? "bad" : ""}"><span>เกินกำหนด</span><b>${d.late.length}</b><small>เรื่อง</small></div>
+        </div>
+        <div class="pbar"><i style="width:${d.pct}%"></i></div>
+        <p class="lead">ในเดือน${monthTxt} เจ้าหน้าที่ ${state.staff.length} คน มีรายงานที่ต้องส่งรวม ${d.all.length} เรื่อง ส่งแล้ว ${d.done} เรื่อง (ร้อยละ ${d.pct}) ตรวจสอบแล้ว ${d.ok} เรื่อง ${d.late.length ? `และมีรายงานเกินกำหนด ${d.late.length} เรื่อง` : "ไม่มีรายงานเกินกำหนด"}</p>
+      </section>
+
+      <section>
+        <h2>2. ผลการดำเนินงานประเด็นเน้นย้ำ กรมการพัฒนาชุมชน</h2>
+        <div class="lvsum">${LEVELS.map(l => `<span>${lvChip(l)} ${counts[l]} ประเด็น</span>`).join("")}</div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>ที่</th><th>ประเด็น</th><th>ผู้รับผิดชอบ</th><th>สถานะรายงาน</th><th>ระดับ</th><th>แนวโน้ม ต.ค.–ก.ย.</th></tr></thead>
+          <tbody>${focusRows}</tbody>
+        </table></div>
+        <label class="budget">ผลการเบิกจ่ายงบประมาณสะสม ร้อยละ
+          <input id="rvBudget" type="number" min="0" max="100" step="0.01" value="${esc(meta.budget)}" placeholder="ระบุ">
+        </label>
+      </section>
+
+      <section>
+        <h2>3. สถานะการรายงานรายบุคคล</h2>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>ที่</th><th>ชื่อ</th><th>รายงาน</th><th>ส่งแล้ว</th><th>เกินกำหนด</th><th>ร้อยละ</th><th>สถานะ</th></tr></thead>
+          <tbody>${staffRows}</tbody>
+        </table></div>
+      </section>
+
+      <section>
+        <h2>4. รายงานที่เกินกำหนด / ต้องเร่งรัด</h2>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>ที่</th><th>รายงาน</th><th>ผู้รับผิดชอบ</th><th>กำหนดส่ง</th><th>สถานะ</th><th>หมายเหตุ</th></tr></thead>
+          <tbody>${lateRows}</tbody>
+        </table></div>
+      </section>
+
+      <section>
+        <h2>5. การดำเนินการต่อไป</h2>
+        <ol class="recs">${autoRecommend(d).map(t => `<li>${esc(t)}</li>`).join("")}</ol>
+        <label class="comment">ความเห็นเพิ่มเติมของพัฒนาการอำเภอ
+          <textarea id="rvComment" rows="3" placeholder="พิมพ์ความเห็นหรือข้อเสนอเพิ่มเติม">${esc(meta.comment)}</textarea>
+        </label>
+        <p class="print-comment">${esc(meta.comment)}</p>
+      </section>
+
+      <div class="endsign"><p class="closing">จึงเรียนมาเพื่อโปรดทราบ</p>
+      <div class="sign">
+        <div>(ลงชื่อ) ......................................................</div>
+        <div>(......................................................)</div>
+        <div>พัฒนาการอำเภอ</div>
+      </div></div>`;
+  }
+
+  function reportText() {
+    const d = reportData(), meta = reportExtra();
+    const monthTxt = `${TH_MONTHS[viewDate.getMonth()]} ${viewDate.getFullYear() + 543}`;
+    const L = [];
+    L.push(`เรียน พัฒนาการจังหวัด`);
+    L.push(`สรุปผลการติดตามรายงานประจำเดือน ${monthTxt}`);
+    L.push(((state.office.sub || "").split("·")[0].trim()) || "สำนักงานพัฒนาชุมชนอำเภอ");
+    L.push(``);
+    L.push(`1) ภาพรวม: รายงาน ${d.all.length} เรื่อง ส่งแล้ว ${d.done} เรื่อง (ร้อยละ ${d.pct}) ตรวจสอบแล้ว ${d.ok} เรื่อง เกินกำหนด ${d.late.length} เรื่อง`);
+    L.push(`2) ประเด็นเน้นย้ำ:`);
+    d.focus.forEach(x => L.push(`  - ${x.f.no ? `ประเด็นที่ ${x.f.no} (${x.f.code})` : x.f.code} ${x.f.title}: ระดับ ${x.lv || "-"}${x.owner ? ` (${x.owner.name})` : ""}`));
+    if (meta.budget) L.push(`  - ผลการเบิกจ่ายงบประมาณสะสม ร้อยละ ${meta.budget}`);
+    L.push(`3) รายบุคคล:`);
+    state.staff.forEach(s => { const st = deskStatus(s); L.push(`  - ${s.name}: ส่ง ${st.done}/${st.total} · ${st.text}`); });
+    if (d.late.length) { L.push(`4) เกินกำหนด:`); d.late.forEach(r => L.push(`  - ${r.title} (${(state.staff.find(s => s.id === r.staffId) || {}).name || "-"}) ${dueText(r)}`)); }
+    L.push(`5) การดำเนินการต่อไป:`);
+    autoRecommend(d).forEach(t => L.push(`  - ${t}`));
+    if (meta.comment) L.push(`  - ${meta.comment}`);
+    L.push(``); L.push(`จึงเรียนมาเพื่อโปรดทราบ`);
+    return L.join("\n");
+  }
+
+  function openReport() {
+    renderReport();
+    $("#reportView").hidden = false;
+    document.body.classList.add("rv-open");
+    window.scrollTo(0, 0);
+  }
+  function closeReport() {
+    $("#reportView").hidden = true;
+    $("#rvCopyBox").hidden = true;
+    document.body.classList.remove("rv-open");
   }
 
   /* ---------------- staff sheet ---------------- */
@@ -841,6 +1010,22 @@
     else if (r) r.staffId = sid;
     else state.reports.push({ id: uid(), staffId: sid, title: focusTitle(f), dueDay: f.day, focus: k });
     save(); renderAll(); toast("เปลี่ยนผู้รับผิดชอบแล้ว");
+  });
+  $("#openReport").onclick = openReport;
+  $("#rvClose").onclick = closeReport;
+  $("#rvPrint").onclick = () => { try { window.print(); } catch (e) { toast("พิมพ์จากหน้านี้ไม่ได้ ลองเปิดเว็บจริงแล้วกดอีกครั้ง"); } };
+  $("#rvCopy").onclick = async () => {
+    const text = reportText();
+    try { await navigator.clipboard.writeText(text); toast("คัดลอกแล้ว นำไปวางใน LINE ได้เลย"); }
+    catch (e) {
+      const box = $("#rvCopyBox"); box.value = text; box.hidden = false; box.focus(); box.select();
+      toast("กดค้างที่ข้อความด้านล่างเพื่อคัดลอก");
+    }
+  };
+  $("#rvPaper").addEventListener("change", e => {
+    const meta = reportExtra();
+    if (e.target.id === "rvBudget") { meta.budget = e.target.value; save(); toast("บันทึกผลการเบิกจ่ายแล้ว"); }
+    if (e.target.id === "rvComment") { meta.comment = e.target.value.trim(); save(); renderReport(); toast("บันทึกความเห็นแล้ว"); }
   });
   $("#prevMonth").onclick = () => { viewDate.setMonth(viewDate.getMonth() - 1); renderAll(); };
   $("#nextMonth").onclick = () => { viewDate.setMonth(viewDate.getMonth() + 1); renderAll(); };

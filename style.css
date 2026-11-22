@@ -311,3 +311,90 @@ h1 { font-size: 18px; margin: 0; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) {
   .staff-sprite, .sweat, .lines, .aura, .sparkle path, .mood-face { animation: none !important; }
 }
+
+/* ---------- หน้าสรุปเสนอผู้บังคับบัญชา (โทนสว่าง) ---------- */
+.report-btn { margin-left: 6px; white-space: nowrap; }
+body.rv-open > :not(#reportView):not(.toast):not(dialog) { display: none !important; }
+body.rv-open { background: #eef3f8; color-scheme: light; }
+.rv {
+  --ink: #1f2d3d; --soft: #5b6b7d; --line: #dbe3ec; --brand: #1f5f9e; --brand-soft: #e6f0fa;
+  --good: #2e8b57; --good-soft: #e5f4ea; --bad: #c0392b; --bad-soft: #fbe9e7; --warn: #b7791f; --warn-soft: #fdf3e1;
+  min-height: 100vh; background: #eef3f8; color: var(--ink); padding: 0 16px 40px;
+  font-family: "Sarabun", "Prompt", sans-serif;
+}
+.rv-bar { position: sticky; top: 0; z-index: 3; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 12px 0; background: #eef3f8; max-width: 860px; margin: 0 auto; }
+.rv-bar-r { display: flex; gap: 8px; flex-wrap: wrap; }
+.rv-btn { border: 1px solid #c9d5e2; background: #fff; color: var(--ink); border-radius: 10px; padding: 8px 14px; cursor: pointer; font-family: Prompt, sans-serif; font-size: 14px; }
+.rv-btn.primary { background: var(--brand); color: #fff; border-color: var(--brand); }
+.rv-copybox { display: block; max-width: 860px; width: 100%; margin: 12px auto 0; min-height: 220px; font: 14px/1.6 Sarabun, sans-serif; border-radius: 10px; border: 1px solid var(--line); padding: 10px; color: var(--ink); background: #fff; }
+.paper { background: #fff; max-width: 860px; margin: 0 auto; border-radius: 14px; box-shadow: 0 4px 24px rgba(31,45,61,.08); padding: 36px 40px; line-height: 1.6; font-size: 15.5px; }
+.p-head { border-bottom: 3px solid var(--brand); padding-bottom: 14px; margin-bottom: 18px; }
+.p-kicker { color: var(--brand); font-family: Prompt, sans-serif; font-weight: 500; font-size: 14px; }
+.paper h1 { font-family: Prompt, sans-serif; font-size: 23px; margin: 4px 0; color: var(--ink); font-weight: 600; line-height: 1.35; }
+.p-meta { color: var(--soft); font-size: 14px; }
+.p-to { margin-top: 10px; }
+.paper section { margin: 22px 0; }
+.paper h2 { break-after: avoid; }
+.paper tr, .kpis, .endsign { break-inside: avoid; }
+.paper h2 { font-family: Prompt, sans-serif; font-size: 17px; color: var(--brand); margin: 0 0 10px; font-weight: 600; }
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.kpi { background: #f6f9fc; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.kpi span { display: block; color: var(--soft); font-size: 13px; }
+.kpi b { font: 600 26px Prompt, sans-serif; color: var(--ink); }
+.kpi small { display: block; color: var(--soft); font-size: 12.5px; }
+.kpi.good { background: var(--good-soft); border-color: #c7e6d2; } .kpi.good b { color: var(--good); }
+.kpi.bad { background: var(--bad-soft); border-color: #f3cbc5; } .kpi.bad b { color: var(--bad); }
+.pbar { height: 10px; background: #e8eef5; border-radius: 6px; margin: 12px 0 8px; overflow: hidden; }
+.pbar i { display: block; height: 100%; background: linear-gradient(90deg, #5aa0e0, #2e8b57); }
+.lead { margin: 6px 0 0; }
+.muted { color: var(--soft); font-size: 13.5px; }
+.tbl-wrap { overflow-x: auto; }
+.paper table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+.paper th { background: var(--brand-soft); color: var(--brand); font-family: Prompt, sans-serif; font-weight: 500; text-align: left; padding: 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.paper td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.paper td.c, .paper th:first-child { text-align: center; }
+.paper td.bad { color: var(--bad); font-weight: 600; }
+.lv { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; font: 600 14px Prompt, sans-serif; }
+.lv-A { background: #dff3e6; color: #22764a; } .lv-B { background: #e1edfb; color: #1f5f9e; }
+.lv-C { background: #fdf0d9; color: #a2650f; } .lv-D { background: #fbe1dd; color: #b03a2e; }
+.lv-none { background: #eef2f6; color: #8a99a8; }
+.lvsum { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; font-size: 14px; }
+.lvsum span { display: inline-flex; align-items: center; gap: 6px; }
+.st { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
+.st-none { background: #eef2f6; color: #5b6b7d; } .st-doing { background: var(--warn-soft); color: var(--warn); }
+.st-sent { background: #e1edfb; color: #1f5f9e; } .st-ok { background: var(--good-soft); color: var(--good); }
+.st-late { background: var(--bad-soft); color: var(--bad); }
+.trend { display: grid; grid-template-columns: repeat(12, 18px); gap: 2px; }
+.tc { height: 18px; border-radius: 4px; background: #f0f3f7; font: 600 10.5px Prompt, sans-serif; display: grid; place-items: center; }
+.tc.cur { outline: 1.5px solid var(--brand); }
+.budget, .comment { display: grid; gap: 6px; margin-top: 12px; color: var(--soft); font-size: 14px; }
+.budget { grid-template-columns: auto 120px; align-items: center; justify-content: start; }
+.budget input, .comment textarea { font: inherit; color: var(--ink); background: #f8fafc; border: 1px solid #cfd9e4; border-radius: 8px; padding: 6px 10px; }
+.recs { margin: 0; padding-left: 22px; }
+.print-comment { display: none; }
+.closing { margin-top: 26px; text-indent: 3em; }
+.sign { margin: 34px 0 0 auto; width: max-content; text-align: center; display: grid; gap: 6px; }
+@media (max-width: 640px) {
+  .paper { padding: 20px 16px; border-radius: 10px; font-size: 15px; }
+  .paper h1 { font-size: 19px; }
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .report-btn { width: 100%; margin: 4px 0 0; }
+  .paper table { min-width: 600px; }
+  .month { flex-wrap: wrap; }
+}
+@media print {
+  @page { size: A4; margin: 14mm; }
+  body, body.rv-open, .rv { background: #fff !important; }
+  .rv { padding: 0; }
+  .rv-bar, .rv-copybox, .toast { display: none !important; }
+  .paper { box-shadow: none; max-width: none; padding: 0 2mm; border-radius: 0; font-size: 12pt; }
+  .paper table { font-size: 10.5pt; }
+  .comment { display: none; }
+  .budget input:placeholder-shown { visibility: hidden; }
+  .budget input { border: none; background: none; padding: 0; }
+  .print-comment { display: block; }
+  .tbl-wrap { overflow: visible; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+.rv-copybox[hidden], .rv[hidden] { display: none !important; }

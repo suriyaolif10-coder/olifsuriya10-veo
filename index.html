@@ -26,6 +26,7 @@
     <button class="icon-btn" id="prevMonth" aria-label="เดือนก่อน">‹</button>
     <div class="month-label" id="monthLabel"></div>
     <button class="icon-btn" id="nextMonth" aria-label="เดือนถัดไป">›</button>
+    <button class="btn report-btn" id="openReport">สรุปเสนอผู้บังคับบัญชา</button>
   </div>
 </header>
 
@@ -56,6 +57,18 @@
 </main>
 
 <section class="focus" id="focus" aria-label="ประเด็นเน้นย้ำ"></section>
+
+<div id="reportView" class="rv" hidden>
+  <div class="rv-bar">
+    <button class="rv-btn" id="rvClose">‹ กลับห้องคุมงาน</button>
+    <div class="rv-bar-r">
+      <button class="rv-btn" id="rvCopy">คัดลอกข้อความส่ง LINE</button>
+      <button class="rv-btn primary" id="rvPrint">พิมพ์ / บันทึก PDF</button>
+    </div>
+  </div>
+  <article class="paper" id="rvPaper"></article>
+  <textarea id="rvCopyBox" class="rv-copybox" hidden readonly></textarea>
+</div>
 
 <dialog id="sheet" class="sheet">
   <form method="dialog" class="sheet-inner" id="sheetForm"></form>
