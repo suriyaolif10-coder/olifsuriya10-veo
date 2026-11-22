@@ -14,6 +14,20 @@
   const STATUS_LABEL = Object.fromEntries(STATUSES.map(s => [s.k, s.label]));
   const STATUS_COLOR = { none: "#8792b8", doing: "#ffb43d", sent: "#3da5ff", ok: "#37d67a", late: "#ff4d6a" };
   const PALETTE = ["#7c6cff", "#34c77b", "#ff5a6e", "#ffb02e", "#3dc6ff", "#ff7ad9", "#9be15d", "#c08bff"];
+  // ประเด็นเน้นย้ำของกรมการพัฒนาชุมชน (แก้ไข/ปรับชื่อได้ที่นี่)
+  const FOCUS = [
+    { k: "f1", no: 1, code: "สกว.", title: "Modern OTOP", owner: 2, day: 20, match: "รายงาน OTOP / ผู้ประกอบการ" },
+    { k: "f2", no: 2, code: "กทบ.", title: "หมู่บ้านกองทุนแม่ของแผ่นดินปลอดภัยจากยาเสพติด", owner: 0, day: 10 },
+    { k: "f3", no: 3, code: "สสช.", title: "การพัฒนาหมู่บ้านเศรษฐกิจพอเพียง", owner: 3, day: 15, match: "รายงานหมู่บ้านเศรษฐกิจพอเพียง" },
+    { k: "f4", no: 4, code: "ศสท.", title: "การขับเคลื่อนสารสนเทศเพื่อการพัฒนาชุมชน", owner: 1, day: 10 },
+    { k: "f5", no: 5, code: "สกส.", title: "ยกระดับการบริหารจัดการกองทุนพัฒนาบทบาทสตรี", owner: 1, day: 15, match: "รายงานกองทุนพัฒนาบทบาทสตรี" },
+    { k: "f6", no: 0, code: "นวัตกรรม", title: "CDD Creativity 2026 นวัตกรรมการพัฒนาชุมชน", owner: 3, day: 25 },
+    { k: "f7", no: 0, code: "งบประมาณ", title: "ผลการใช้จ่ายงบประมาณ", owner: 2, day: 25, match: "รายงานผลการเบิกจ่ายงบประมาณ" },
+  ];
+  const focusTitle = f => f.no ? `ประเด็นที่ ${f.no} (${f.code}) ${f.title}` : f.title;
+  const LEVELS = ["A", "B", "C", "D"];
+  const LEVEL_SCORE = { A: 4, B: 3, C: 2, D: 1 };
+  const LEVEL_COLOR = { A: "#37d67a", B: "#3da5ff", C: "#ffb43d", D: "#ff4d6a" };
   const TH_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
   const TH_MON = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
   const TH_DAY = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
@@ -33,26 +47,23 @@
       { id: uid(), name: "ต้น", color: PALETTE[2] },
       { id: uid(), name: "ฝน", color: PALETTE[3] },
     ];
-    const R = (i, title, dueDay) => ({ id: uid(), staffId: staff[i].id, title, dueDay });
+    const R = (i, title, dueDay, focus) => ({ id: uid(), staffId: staff[i].id, title, dueDay, ...(focus ? { focus } : {}) });
+    const F = k => { const f = FOCUS.find(x => x.k === k); return R(f.owner, focusTitle(f), f.day, k); };
     const reports = [
-      R(0, "รายงานผลการดำเนินงานประจำเดือน", 5),
-      R(0, "รายงาน กข.คจ.", 10),
-      R(1, "รายงานกลุ่มออมทรัพย์เพื่อการผลิต", 10),
-      R(1, "รายงานกองทุนพัฒนาบทบาทสตรี", 15),
-      R(2, "รายงาน OTOP / ผู้ประกอบการ", 20),
-      R(2, "รายงานผลการเบิกจ่ายงบประมาณ", 25),
-      R(3, "รายงานหมู่บ้านเศรษฐกิจพอเพียง", 15),
-      R(3, "รายงานสรุปหนังสือรับ-ส่ง", 28),
+      R(0, "รายงานผลการดำเนินงานประจำเดือน", 5), R(0, "รายงาน กข.คจ.", 10), F("f2"),
+      R(1, "รายงานกลุ่มออมทรัพย์เพื่อการผลิต", 10), F("f4"), F("f5"),
+      F("f1"), F("f7"),
+      F("f3"), F("f6"), R(3, "รายงานสรุปหนังสือรับ-ส่ง", 28),
     ];
-    // ตัวอย่างสถานะของเดือนปัจจุบัน ให้เห็นภาพการใช้งาน
-    const demo = ["ok", "sent", "ok", "doing", "doing", "none", "none", "none"];
+    // ตัวอย่างสถานะ/ระดับของเดือนปัจจุบัน ให้เห็นภาพการใช้งาน
+    const demo = [["ok"], ["sent"], ["ok", "A"], ["ok"], ["sent", "B"], ["doing", "C"], ["doing", "B"], ["none"], ["doing", "D"], ["none"], ["none"]];
     const mk = monthKey(new Date());
     const months = { [mk]: {} };
-    reports.forEach((r, i) => { months[mk][r.id] = { s: demo[i], note: "", t: Date.now() }; });
+    reports.forEach((r, i) => { months[mk][r.id] = { s: demo[i][0], level: demo[i][1] || "", note: "", t: Date.now() }; });
     return {
       version: 1,
       office: { title: "ห้องคุมงาน สพอ.", sub: "สำนักงานพัฒนาชุมชนอำเภอ · รายงานประจำเดือน" },
-      staff, reports, months, log: [],
+      staff, reports, months, log: [], focusV: 1,
     };
   }
 
@@ -74,7 +85,21 @@
     catch (e) { toast("บันทึกในเครื่องไม่ได้ (เบราว์เซอร์ปิดการเก็บข้อมูล)"); }
   }
 
-  let state = load();
+  // เพิ่มประเด็นเน้นย้ำให้ข้อมูลเดิมที่ยังไม่มี
+  function migrate(d) {
+    if (d.focusV) return d;
+    FOCUS.forEach(f => {
+      if (d.reports.some(r => r.focus === f.k)) return;
+      const old = f.match && d.reports.find(r => !r.focus && r.title === f.match);
+      if (old) { old.focus = f.k; old.title = focusTitle(f); return; }
+      const owner = d.staff[f.owner] || d.staff[0];
+      if (owner) d.reports.push({ id: uid(), staffId: owner.id, title: focusTitle(f), dueDay: f.day, focus: f.k });
+    });
+    d.focusV = 1;
+    return d;
+  }
+
+  let state = migrate(load());
   state.log = state.log || [];
   state.office = state.office || { title: "ห้องคุมงาน สพอ.", sub: "" };
   let viewDate = new Date();
@@ -131,6 +156,19 @@
     state.log = state.log.slice(0, 60);
     save();
   }
+
+  function setLevel(r, lv) {
+    const key = mk();
+    state.months[key] = state.months[key] || {};
+    const prev = state.months[key][r.id] || { s: "none", note: "" };
+    const level = prev.level === lv ? "" : lv;
+    state.months[key][r.id] = { ...prev, level, t: Date.now() };
+    const who = state.staff.find(x => x.id === r.staffId);
+    state.log.unshift({ t: Date.now(), who: who ? who.name : "", what: r.title, to: level ? `ระดับ ${level}` : "ล้างระดับ", month: key });
+    state.log = state.log.slice(0, 60);
+    save();
+  }
+  const levelOf = (r, key = mk()) => ((state.months[key] || {})[r.id] || {}).level || "";
 
   /* ---------------- isometric room ---------------- */
   const O = { x: 500, y: 150 }, TW = 32, TH = 16, ZS = 32, N = 13;
@@ -378,8 +416,67 @@
       : `<li class="empty" style="border:0;padding:0">ยังไม่มีการอัปเดต</li>`;
   }
 
+  function fiscalMonths() {
+    const y = viewDate.getFullYear(), m = viewDate.getMonth();
+    const fyStart = m >= 9 ? y : y - 1; // ปีงบประมาณเริ่ม ต.ค.
+    return { fy: fyStart + 1 + 543, list: Array.from({ length: 12 }, (_, i) => new Date(fyStart, 9 + i, 1)) };
+  }
+
+  function renderFocus() {
+    const { fy, list } = fiscalMonths();
+    const curKey = mk();
+    const rows = FOCUS.map(f => {
+      const r = state.reports.find(x => x.focus === f.k && state.staff.some(s => s.id === x.staffId));
+      return { f, r, lv: r ? levelOf(r) : "", eff: r ? effective(r) : "none" };
+    });
+    const counts = { A: 0, B: 0, C: 0, D: 0, "": 0 };
+    rows.forEach(x => counts[x.lv]++);
+    const staffOpts = sel => `<option value="">— ยังไม่มีผู้รับผิดชอบ —</option>` +
+      state.staff.map(s => `<option value="${esc(s.id)}" ${s.id === sel ? "selected" : ""}>${esc(s.name)}</option>`).join("");
+
+    const cards = rows.map(({ f, r, lv, eff }) => {
+      const owner = r && state.staff.find(s => s.id === r.staffId);
+      const strip = list.map(d => {
+        const key = monthKey(d), l = r ? levelOf(r, key) : "";
+        return `<span class="mcell ${key === curKey ? "cur" : ""}" title="${TH_MONTHS[d.getMonth()]}" style="${l ? `--lc:${LEVEL_COLOR[l]}` : ""}"><i>${TH_MON[d.getMonth()].replace(/\./g, "")}</i><b>${l || "·"}</b></span>`;
+      }).join("");
+      return `<article class="fcard" ${owner ? `data-staff="${esc(owner.id)}"` : ""} style="--c:${owner ? owner.color : "#4a5585"}">
+        <div class="fhead">
+          <span class="fcode">${f.no ? `ประเด็นที่ ${f.no} · ` : ""}${esc(f.code)}</span>
+          <span class="flevel" style="${lv ? `--lc:${LEVEL_COLOR[lv]}` : ""}" aria-label="ระดับ ${lv || "ยังไม่ประเมิน"}">${lv || "–"}</span>
+        </div>
+        <h3>${esc(f.title)}</h3>
+        <div class="fmeta">
+          <select data-focus-owner="${f.k}" aria-label="ผู้รับผิดชอบ ${esc(f.title)}">${staffOpts(owner && owner.id)}</select>
+          ${r ? `<span class="${pillClass(eff)}">${esc(eff === "late" ? dueText(r) : STATUS_LABEL[eff])}</span>` : ""}
+        </div>
+        <div class="strip" aria-label="ระดับรายเดือน ปีงบประมาณ ${fy}">${strip}</div>
+      </article>`;
+    }).join("");
+
+    const ranked = rows.filter(x => x.r).slice().sort((a, b) => (LEVEL_SCORE[b.lv] || 0) - (LEVEL_SCORE[a.lv] || 0));
+    const rankItem = (x, i) => `<li><span class="rk-no">${i + 1}</span><span class="rk-t">${x.f.no ? `${x.f.no}. ` : ""}${esc(x.f.code)} <small>${esc(x.f.title)}</small></span><span class="rk-l" style="${x.lv ? `--lc:${LEVEL_COLOR[x.lv]}` : ""}">${x.lv || "–"}</span></li>`;
+    const urgent = rows.filter(x => x.r && (x.lv === "C" || x.lv === "D" || x.eff === "late"));
+
+    $("#focus").innerHTML = `
+      <div class="focus-head">
+        <div><h2>รายงานผลการดำเนินงานประเด็นเน้นย้ำ</h2>
+          <p class="small">ผลการดำเนินงานเดือน${TH_MONTHS[viewDate.getMonth()]} ${viewDate.getFullYear() + 543} · ปีงบประมาณ ${fy} · แตะการ์ดเพื่อบันทึกสถานะและระดับ</p></div>
+        <div class="lv-count">${LEVELS.map(l => `<span style="--lc:${LEVEL_COLOR[l]}"><b>${l}</b>${counts[l]}</span>`).join("")}<span class="none"><b>–</b>${counts[""]}</span></div>
+      </div>
+      <div class="focus-body">
+        <div class="fgrid">${cards}</div>
+        <aside class="rank">
+          <h3>อันดับประเด็น (เดือนนี้)</h3>
+          <ol class="rk">${ranked.map(rankItem).join("") || `<li class="empty">ยังไม่มีข้อมูล</li>`}</ol>
+          <h3 class="warn">ต้องเร่งติดตาม</h3>
+          <ol class="rk">${urgent.length ? urgent.map((x, i) => rankItem(x, i)).join("") : `<li class="empty">ไม่มีประเด็นที่ต้องเร่ง</li>`}</ol>
+        </aside>
+      </div>`;
+  }
+
   function renderAll() {
-    renderHeader(); renderSummary(); renderRoom(); renderStaffList(); renderDueList(); renderLog();
+    renderHeader(); renderSummary(); renderRoom(); renderStaffList(); renderDueList(); renderLog(); renderFocus();
   }
 
   /* ---------------- staff sheet ---------------- */
@@ -409,13 +506,16 @@
           const e = entry(r); const late = isLate(r);
           return `<div class="report ${late ? "is-late" : ""}" data-report="${esc(r.id)}">
             <div class="report-top">
-              <div><div class="report-title">${esc(r.title)}</div>
+              <div><div class="report-title">${r.focus ? `<span class="focus-badge">เน้นย้ำ</span> ` : ""}${esc(r.title)}</div>
                 <div class="report-due">กำหนดส่ง ${fmtDue(r)} (ทุกวันที่ ${r.dueDay})${late ? ` · <span style="color:var(--s-late)">${esc(dueText(r))}</span>` : dueText(r) ? ` · ${esc(dueText(r))}` : ""}</div></div>
               <button type="button" class="mini-del" data-del="${esc(r.id)}" aria-label="ลบรายงาน ${esc(r.title)}">×</button>
             </div>
             <div class="seg" role="group" aria-label="สถานะ">
               ${STATUSES.map(x => `<button type="button" class="p-${x.k}" data-set="${x.k}" aria-pressed="${e.s === x.k}">${x.label}</button>`).join("")}
             </div>
+            ${r.focus ? `<div class="lvl-row"><span class="small">ระดับผลการดำเนินงานเดือนนี้</span><div class="lvl-seg" role="group" aria-label="ระดับ">
+              ${LEVELS.map(l => `<button type="button" data-level="${l}" style="--lc:${LEVEL_COLOR[l]}" aria-pressed="${e.level === l}">${l}</button>`).join("")}
+            </div></div>` : ""}
             <input class="note" data-note="${esc(r.id)}" placeholder="หมายเหตุ (เช่น เลขหนังสือ, สิ่งที่ต้องแก้)" value="${esc(e.note || "")}">
           </div>`;
         }).join("") : `<div class="empty">ยังไม่มีรายงานที่รับผิดชอบ เพิ่มด้านล่างได้เลย</div>`}
@@ -447,6 +547,14 @@
       setStatus(r, set.dataset.set);
       renderStaffSheet(); renderAll();
       toast(`${r.title} → ${STATUS_LABEL[set.dataset.set]}`);
+      return;
+    }
+    const lv = e.target.closest("[data-level]");
+    if (lv && s) {
+      const r = state.reports.find(x => x.id === lv.closest("[data-report]").dataset.report);
+      setLevel(r, lv.dataset.level);
+      renderStaffSheet(); renderAll();
+      toast(levelOf(r) ? `บันทึกระดับ ${levelOf(r)} แล้ว` : "ล้างระดับแล้ว");
       return;
     }
     const del = e.target.closest("[data-del]");
@@ -563,7 +671,7 @@
       const data = JSON.parse(await f.text());
       if (!valid(data)) throw new Error("bad");
       data.log = data.log || []; data.office = data.office || state.office;
-      state = data; save(); renderAll(); toast("นำเข้าข้อมูลแล้ว");
+      state = migrate(data); save(); renderAll(); toast("นำเข้าข้อมูลแล้ว");
     } catch (err) { toast("ไฟล์ไม่ถูกต้อง"); }
     e.target.value = "";
   });
@@ -576,7 +684,7 @@
   }
 
   document.addEventListener("click", e => {
-    if (sheet.contains(e.target)) return;
+    if (sheet.contains(e.target) || e.target.closest("select")) return;
     const hit = e.target.closest("[data-staff]");
     if (hit) return openStaff(hit.dataset.staff);
     if (e.target.closest("[data-boss]")) return openSettings();
@@ -590,6 +698,16 @@
   });
   sheet.addEventListener("click", e => { if (e.target === sheet) sheet.close(); });
   sheet.addEventListener("close", () => { openStaffId = null; });
+  $("#focus").addEventListener("change", e => {
+    const k = e.target.dataset.focusOwner; if (!k) return;
+    const f = FOCUS.find(x => x.k === k);
+    const sid = e.target.value;
+    let r = state.reports.find(x => x.focus === k);
+    if (!sid) { if (r) state.reports = state.reports.filter(x => x !== r); }
+    else if (r) r.staffId = sid;
+    else state.reports.push({ id: uid(), staffId: sid, title: focusTitle(f), dueDay: f.day, focus: k });
+    save(); renderAll(); toast("เปลี่ยนผู้รับผิดชอบแล้ว");
+  });
   $("#prevMonth").onclick = () => { viewDate.setMonth(viewDate.getMonth() - 1); renderAll(); };
   $("#nextMonth").onclick = () => { viewDate.setMonth(viewDate.getMonth() + 1); renderAll(); };
   $("#settingsBtn").onclick = openSettings;

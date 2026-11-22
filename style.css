@@ -224,3 +224,47 @@ h1 { font-size: 18px; margin: 0; font-weight: 600; }
 }
 .phone-only { display: none; }
 @media (max-width: 560px) { .phone-only { display: inline; } }
+
+/* ---------- ประเด็นเน้นย้ำ ---------- */
+.focus { max-width: 1280px; margin: 0 auto; padding: 0 16px 32px; }
+.focus-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; border-top: 1px solid var(--line); padding-top: 18px; }
+.focus-head h2 { margin: 0; font-size: 19px; color: var(--cyan); font-weight: 600; }
+.focus-head p { margin: 2px 0 0; }
+.lv-count { display: flex; gap: 6px; flex-wrap: wrap; }
+.lv-count span { display: inline-flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 4px 10px; font-size: 14px; }
+.lv-count b { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; background: var(--lc, #4a5585); color: #04122e; font-family: Prompt; }
+.lv-count .none b { color: var(--text); }
+.focus-body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+.fgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.fcard {
+  background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--c); border-radius: 14px;
+  padding: 12px; display: grid; gap: 8px; cursor: pointer; align-content: start;
+}
+.fcard:hover { background: var(--panel2); }
+.fhead { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.fcode { font-size: 12px; color: var(--muted); font-family: Prompt; }
+.flevel { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; font: 600 20px Prompt, sans-serif; background: var(--lc, #26336e); color: #04122e; }
+.flevel:not([style*="--lc"]) { color: var(--muted); }
+.fcard h3 { margin: 0; font-size: 15px; font-weight: 500; line-height: 1.35; }
+.fmeta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
+.fmeta select { font: inherit; font-size: 13px; color: var(--text); background: #0b1538; border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; max-width: 60%; }
+.strip { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; }
+.mcell { display: grid; text-align: center; border-radius: 5px; background: #0b1538; padding: 2px 0; }
+.mcell i { font-style: normal; font-size: 8.5px; color: var(--muted); line-height: 1.2; }
+.mcell b { font: 600 11px Prompt, sans-serif; color: var(--lc, #4a5585); line-height: 1.3; }
+.mcell.cur { outline: 1px solid var(--cyan); }
+.rank { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+.rank h3 { margin: 0 0 8px; font-size: 15px; font-weight: 500; color: var(--s-ok); }
+.rank h3.warn { color: var(--s-late); margin-top: 14px; }
+.rk { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.rk li { display: grid; grid-template-columns: 22px 1fr 28px; gap: 8px; align-items: center; font-size: 13px; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+.rk li:last-child { border-bottom: 0; }
+.rk-no { color: var(--muted); font-family: Prompt; text-align: center; }
+.rk-t small { display: block; color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rk-l { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; font: 600 14px Prompt; background: var(--lc, #26336e); color: #04122e; }
+.focus-badge { font-size: 11px; background: var(--pink); color: #fff; border-radius: 6px; padding: 1px 6px; vertical-align: 2px; font-weight: 500; }
+.lvl-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.lvl-seg { display: flex; gap: 4px; }
+.lvl-seg button { width: 40px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: #0b1538; color: var(--muted); font: 600 15px Prompt, sans-serif; cursor: pointer; }
+.lvl-seg button[aria-pressed="true"] { background: var(--lc); border-color: var(--lc); color: #04122e; }
+@media (max-width: 900px) { .focus-body { grid-template-columns: 1fr; } }
