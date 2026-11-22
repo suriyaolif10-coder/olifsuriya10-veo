@@ -89,7 +89,7 @@ h1 { font-size: 18px; margin: 0; font-weight: 600; }
 /* staff cards */
 .staff-list { display: grid; gap: 8px; }
 .staff-card {
-  display: grid; grid-template-columns: 10px 1fr auto; gap: 10px; align-items: center;
+  display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center;
   width: 100%; text-align: left; cursor: pointer;
   background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
   border-left: 3px solid var(--c, var(--cyan));
@@ -285,4 +285,31 @@ h1 { font-size: 18px; margin: 0; font-weight: 600; }
 @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
   .officer-body.walking, #tagLayer .tag, #tagLayer .tag.nudge, .bubble { animation: none; }
+}
+
+/* ---------- อารมณ์เจ้าหน้าที่ ---------- */
+.mood-txt { font-size: 12px; font-family: Prompt, sans-serif; }
+.staff-sprite { transform-box: fill-box; transform-origin: 50% 100%; }
+.staff-sprite.mood-happy { animation: hop 1.6s ease-in-out infinite; }
+.staff-sprite.mood-calm { animation: breathe 3.4s ease-in-out infinite; }
+.staff-sprite.mood-worried { animation: sway 2.6s ease-in-out infinite; }
+.staff-sprite.mood-stressed { animation: tremble .3s linear infinite; }
+.staff-sprite.mood-panic { animation: panic .14s linear infinite; }
+@keyframes hop { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-12px); } 45% { transform: translateY(-4px); } }
+@keyframes breathe { 50% { transform: translateY(-3px); } }
+@keyframes sway { 25% { transform: translateY(-2px) rotate(-2deg); } 75% { transform: translateY(-2px) rotate(2deg); } }
+@keyframes tremble { 25% { transform: translate(-1.5px, -2px); } 75% { transform: translate(1.5px, -2px); } }
+@keyframes panic { 0% { transform: translate(-3px, -5px) rotate(-1deg); } 50% { transform: translate(3px, -3px) rotate(1deg); } 100% { transform: translate(-3px, -5px) rotate(-1deg); } }
+.sweat { animation: drip 1.3s ease-in infinite; transform-box: fill-box; }
+@keyframes drip { 0% { transform: translateY(-4px); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(18px); opacity: 0; } }
+.lines { animation: flash .5s steps(2) infinite; }
+@keyframes flash { 50% { opacity: .25; } }
+.aura { animation: auraPulse 1s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes auraPulse { 50% { opacity: .12; transform: scale(1.08); } }
+.sparkle path { animation: twinkle 1.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes twinkle { 50% { transform: scale(.4); opacity: .3; } }
+.mood-face { animation: float 2.6s ease-in-out infinite; }
+.avatar { background: transparent !important; }
+@media (prefers-reduced-motion: reduce) {
+  .staff-sprite, .sweat, .lines, .aura, .sparkle path, .mood-face { animation: none !important; }
 }

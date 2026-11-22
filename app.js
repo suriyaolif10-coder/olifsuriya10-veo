@@ -176,6 +176,62 @@
   }
   const levelOf = (r, key = mk()) => ((state.months[key] || {})[r.id] || {}).level || "";
 
+  /* ---------------- อารมณ์เจ้าหน้าที่ตามจำนวนงานค้าง ---------------- */
+  function moodOf(s) {
+    const rs = reportsOf(s.id);
+    const late = rs.filter(r => effective(r) === "late").length;
+    if (late >= 3) return { k: "panic", label: "ตื่นตระหนก", late };
+    if (late === 2) return { k: "stressed", label: "เครียด", late };
+    if (late === 1) return { k: "worried", label: "กังวล", late };
+    if (rs.length && rs.every(r => ["sent", "ok"].includes(entry(r).s))) return { k: "happy", label: "สบายใจ", late };
+    return { k: "calm", label: "ปกติ", late };
+  }
+  const MOOD_COLOR = { happy: "#37d67a", calm: "#3da5ff", worried: "#ffb43d", stressed: "#ff8a3d", panic: "#ff4d6a" };
+
+  // หน้าการ์ตูนเล็กๆ วาดเองด้วย SVG (ไม่ต้องพึ่งฟอนต์อีโมจิ) — หน่วยรัศมี 10
+  function faceMarkup(k) {
+    const eyesDot = `<circle cx="-3.6" cy="-1.5" r="1.4" fill="#3a2a1a"/><circle cx="3.6" cy="-1.5" r="1.4" fill="#3a2a1a"/>`;
+    const parts = {
+      happy: `<path d="M-5.5,-1 q2,-3 4,0 M1.5,-1 q2,-3 4,0" stroke="#3a2a1a" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M-5,2.5 q5,6 10,0 z" fill="#3a2a1a"/><circle cx="-6.5" cy="2.5" r="1.6" fill="#ff8aa8" opacity=".7"/><circle cx="6.5" cy="2.5" r="1.6" fill="#ff8aa8" opacity=".7"/>`,
+      calm: `${eyesDot}<path d="M-3.5,3.5 q3.5,3 7,0" stroke="#3a2a1a" stroke-width="1.4" fill="none" stroke-linecap="round"/>`,
+      worried: `${eyesDot}<path d="M-6,-5 l4,-1.2 M6,-5 l-4,-1.2" stroke="#3a2a1a" stroke-width="1.2" stroke-linecap="round"/><path d="M-3.5,5 q1.75,-2 3.5,0 q1.75,2 3.5,0" stroke="#3a2a1a" stroke-width="1.3" fill="none" stroke-linecap="round"/>`,
+      stressed: `<path d="M-9,-3 a10,10 0 0 1 18,0 z" fill="#7fb6ff" opacity=".55"/>${eyesDot}<path d="M-6,-5.5 l4,1.4 M6,-5.5 l-4,1.4" stroke="#3a2a1a" stroke-width="1.2" stroke-linecap="round"/><path d="M-4,6 q4,-4 8,0" stroke="#3a2a1a" stroke-width="1.4" fill="none" stroke-linecap="round"/>`,
+      panic: `<path d="M-9.5,-1 a10,10 0 0 1 19,0 z" fill="#6f9dff" opacity=".7"/><circle cx="-3.8" cy="-2" r="2.6" fill="#fff" stroke="#3a2a1a" stroke-width=".9"/><circle cx="3.8" cy="-2" r="2.6" fill="#fff" stroke="#3a2a1a" stroke-width=".9"/><circle cx="-3.8" cy="-2" r=".9" fill="#3a2a1a"/><circle cx="3.8" cy="-2" r=".9" fill="#3a2a1a"/><ellipse cx="0" cy="5" rx="2.6" ry="3.2" fill="#3a2a1a"/>`,
+    };
+    return `<circle r="10" fill="#ffd45c" stroke="#e0a800" stroke-width=".8"/>${parts[k] || parts.calm}`;
+  }
+  const faceIcon = (k, size = 22) => `<svg class="face" width="${size}" height="${size}" viewBox="-11 -11 22 22" aria-hidden="true">${faceMarkup(k)}</svg>`;
+
+  // ตำแหน่งภาพตัดของเจ้าหน้าที่แต่ละโต๊ะ (assets/staff1-4.png)
+  const SPRITES = [
+    { x: 278, y: 524, w: 176, h: 160 }, { x: 714, y: 538, w: 152, h: 146 },
+    { x: 248, y: 879, w: 164, h: 168 }, { x: 748, y: 879, w: 164, h: 168 },
+  ];
+  function staffFx(i, m) {
+    const sp = SPRITES[i];
+    const hx = sp.x + sp.w * 0.5, top = sp.y + 14;
+    const rx = sp.x + sp.w - 30; // ข้างหัวขวา
+    let g = "", aura = "";
+    if (m.k === "panic") aura += `<ellipse class="aura" cx="${hx}" cy="${sp.y + sp.h * 0.6}" rx="${sp.w * 0.62}" ry="${sp.h * 0.55}" fill="${MOOD_COLOR.panic}" opacity=".35"/>`;
+    const drops = { worried: 1, stressed: 2, panic: 3 }[m.k] || 0;
+    for (let d = 0; d < drops; d++) {
+      const dx = rx + d * 14 - 6, dy = top + 30 + d * 8;
+      g += `<path class="sweat" style="animation-delay:${d * -0.4}s" d="M${dx},${dy} q-10,17 0,23 q10,-6 0,-23z" fill="#8fd3ff" stroke="#3d8bd6" stroke-width="2"/>`;
+    }
+    if (m.k === "stressed" || m.k === "panic") {
+      g += `<g class="lines" stroke="${MOOD_COLOR[m.k]}" stroke-width="4" stroke-linecap="round">
+        <path d="M${sp.x + 18},${top + 4} l-14,-10"/><path d="M${sp.x + 10},${top + 22} l-16,-2"/><path d="M${sp.x + sp.w - 14},${top} l12,-12"/></g>`;
+    }
+    if (m.k === "panic") g += `<text class="lines" x="${sp.x - 22}" y="${top + 70}" font-family="Prompt" font-weight="700" font-size="40" fill="${MOOD_COLOR.panic}">!!</text>`;
+    if (m.k === "happy") {
+      g += `<g class="sparkle" fill="#ffe27a">
+        <path d="M${sp.x + 10},${top + 10} l4,10 l10,4 l-10,4 l-4,10 l-4,-10 l-10,-4 l10,-4z"/>
+        <path style="animation-delay:-.7s" d="M${sp.x + sp.w - 12},${top - 2} l3,7 l7,3 l-7,3 l-3,7 l-3,-7 l-7,-3 l7,-3z"/></g>`;
+    }
+    // หน้าอารมณ์ลอยเหนือหัว
+    return { g, aura };
+  }
+
   /* ---------------- ห้องทำงาน (ภาพพื้นหลัง + ป้ายสถานะสด) ---------------- */
   // พิกัดในภาพ assets/room.jpg (1152×1560) — ป้ายของจริงวางทับป้ายในภาพ
   const ROOM_W = 1152, ROOM_H = 1560;
@@ -203,6 +259,7 @@
         <text x="${cx}" y="${y + 66}" text-anchor="middle" font-family="Prompt" font-weight="600" font-size="${fs}" fill="#f2f6ff">${esc(name)}</text>
         <text x="${cx}" y="${y + h - 18}" text-anchor="middle" font-family="Prompt" font-size="24" fill="${col}">${esc(st.text)}${icon}</text>
         <text x="${x + w - 14}" y="${y + 36}" text-anchor="end" font-family="Prompt" font-size="20" fill="#9aa8d6">${st.done}/${st.total}</text>
+        <g transform="translate(${x + 30},${y + 40}) scale(1.9)"><g class="mood-face">${faceMarkup(moodOf(s).k)}</g></g>
       </g>
     </g>`;
   }
@@ -246,6 +303,9 @@
       svg.setAttribute("viewBox", `0 0 ${ROOM_W} ${ROOM_H}`);
       svg.innerHTML = `<defs><linearGradient id="barGrad" x1="0" x2="1"><stop offset="0" stop-color="#3d7bff"/><stop offset="1" stop-color="#3de0ff"/></linearGradient></defs>
         <image href="assets/room.jpg" x="0" y="0" width="${ROOM_W}" height="${ROOM_H}"/>
+        <g id="auraLayer" pointer-events="none"></g>
+        <g id="staffLayer">${SPRITES.map((sp, i) => `<g class="staff-sprite" data-seat-sprite="${i}"><image href="assets/staff${i + 1}.png" x="${sp.x}" y="${sp.y}" width="${sp.w}" height="${sp.h}"/></g>`).join("")}</g>
+        <g id="fxLayer" pointer-events="none"></g>
         <g class="desk-hit" data-boss="1" tabindex="0" role="button" aria-label="ตั้งค่าห้องคุมงาน"><rect x="350" y="1190" width="450" height="320" fill="transparent"/></g>
         <g id="boardLayer"></g>
         <g id="officer" class="desk-hit" data-boss="1" aria-hidden="true">
@@ -257,6 +317,14 @@
       placeOfficer(officer.x, officer.y);
     }
     svg.querySelector("#boardLayer").innerHTML = boardPanel();
+    const staff4 = state.staff.slice(0, MAX_STAFF);
+    svg.querySelectorAll("[data-seat-sprite]").forEach(g => {
+      const s = staff4[+g.dataset.seatSprite];
+      g.setAttribute("class", "staff-sprite " + (s ? "mood-" + moodOf(s).k : ""));
+    });
+    const fx = staff4.map((s, i) => staffFx(i, moodOf(s)));
+    svg.querySelector("#auraLayer").innerHTML = fx.map(f => f.aura).join("");
+    svg.querySelector("#fxLayer").innerHTML = fx.map(f => f.g).join("");
     svg.querySelector("#tagLayer").innerHTML = state.staff.slice(0, MAX_STAFF).map((st, i) => seatTag(st, SEATS[i], i)).join("");
   }
 
@@ -330,13 +398,16 @@
     const rs = reportsOf(s.id);
     const short = t => t.replace(/^ประเด็นที่ \d+ \(([^)]+)\) .*/, "ประเด็น $1").replace(/^รายงาน/, "").slice(0, 16);
     const late = rs.find(r => effective(r) === "late");
-    if (late) return [`${s.name} ${short(late.title)} ค้างอยู่นะ`, "กำลังเร่งเลยครับ/ค่ะ!"];
+    const m = moodOf(s);
+    if (m.k === "panic") return [`${s.name} ค้าง ${m.late} เรื่องแล้วนะ!`, "ช่วยด้วย งานท่วมแล้ว!!"];
+    if (m.k === "stressed") return [`${s.name} ค้าง 2 เรื่อง ไหวไหม?`, "เครียดมาก แต่จะรีบส่ง!"];
+    if (late) return [`${s.name} ${short(late.title)} ค้างอยู่นะ`, "ขอโทษครับ/ค่ะ จะรีบส่ง"];
     const doing = rs.find(r => entry(r).s === "doing");
     if (doing) return [`${short(doing.title)} ใกล้เสร็จยัง?`, "อีกนิดเดียว!"];
     const todo = rs.find(r => entry(r).s === "none");
     if (todo) return [`อย่าลืม ${short(todo.title)} ส่ง ${fmtDue(todo)}`, "รับทราบ!"];
-    if (rs.length && rs.every(r => entry(r).s === "ok")) return [`ขอบคุณ ${s.name} ตรวจครบแล้ว 🎉`, "ยินดีครับ/ค่ะ"];
-    if (rs.length) return [`${s.name} ส่งครบแล้ว เยี่ยมมาก 👍`, "ขอบคุณครับ/ค่ะ"];
+    if (rs.length && rs.every(r => entry(r).s === "ok")) return [`ขอบคุณ ${s.name} ตรวจครบแล้ว`, "สบายใจสุดๆ!"];
+    if (rs.length) return [`${s.name} ส่งครบแล้ว เยี่ยมมาก`, "เย้! สบายใจแล้ว"];
     return [`${s.name} ช่วงนี้เป็นยังไงบ้าง?`, "สบายดี!"];
   }
 
@@ -413,8 +484,8 @@
       const next = reportsOf(s.id).find(r => ["none", "doing"].includes(entry(r).s));
       const pct = st.total ? st.done / st.total * 100 : 0;
       return `<button class="staff-card" data-staff="${esc(s.id)}" style="--c:${s.color}">
-        <span class="dot"></span>
-        <span><span class="nm">${esc(s.name)}</span>
+        ${faceIcon(moodOf(s).k, 26)}
+        <span><span class="nm">${esc(s.name)}</span> <span class="mood-txt" style="color:${MOOD_COLOR[moodOf(s).k]}">${moodOf(s).label}</span>
           <span class="meta">${st.done}/${st.total} ส่งแล้ว${next ? ` · ถัดไป: ${esc(next.title)} (${fmtDue(next)})` : ""}</span>
           <span class="prog" style="display:block"><i style="width:${pct}%"></i></span></span>
         <span class="${pillClass(st.k)}">${esc(st.text)}</span>
@@ -529,7 +600,7 @@
     const rs = reportsOf(s.id);
     form.innerHTML = `
       <div class="sheet-head" style="--c:${s.color}">
-        <div class="avatar">${esc(s.name.slice(0, 1))}</div>
+        <div class="avatar">${faceIcon(moodOf(s).k, 34)}</div>
         <h3>${esc(s.name)} <span class="${pillClass(st.k)}" style="vertical-align:middle">${esc(st.text)}</span></h3>
         <button class="icon-btn" value="close" aria-label="ปิด">×</button>
       </div>
