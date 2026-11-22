@@ -12,7 +12,7 @@
     { k: "ok", label: "ตรวจแล้ว" },
   ];
   const STATUS_LABEL = Object.fromEntries(STATUSES.map(s => [s.k, s.label]));
-  const STATUS_COLOR = { none: "#6b7a90", doing: "#c27c0e", sent: "#1f6fd1", ok: "#23955a", late: "#d6334d" };
+  const STATUS_COLOR = { none: "#8792b8", doing: "#ffb43d", sent: "#3da5ff", ok: "#37d67a", late: "#ff4d6a" };
   const PALETTE = ["#7c6cff", "#34c77b", "#ff5a6e", "#ffb02e", "#3dc6ff", "#ff7ad9", "#9be15d", "#c08bff"];
   // ประเด็นเน้นย้ำของกรมการพัฒนาชุมชน (แก้ไข/ปรับชื่อได้ที่นี่)
   const FOCUS = [
@@ -254,11 +254,11 @@
     return `<g class="desk-hit" data-staff="${esc(s.id)}" data-seat="${i}" tabindex="0" role="button" aria-label="${esc(s.name)}: ${esc(st.text)}">
       <rect x="${seat.hit.x}" y="${seat.hit.y}" width="${seat.hit.w}" height="${seat.hit.h}" fill="transparent"/>
       <g class="tag ${st.k}">
-        <rect class="tag-bg" x="${x}" y="${y}" width="${w}" height="${h}" rx="20" fill="#ffffff" fill-opacity=".96" stroke="${col}" stroke-width="4" style="color:${col}"/>
+        <rect class="tag-bg" x="${x}" y="${y}" width="${w}" height="${h}" rx="20" fill="#0c1438" stroke="${col}" stroke-width="4" style="color:${col}"/>
         <rect x="${x + 14}" y="${y + 10}" width="${w - 28}" height="5" rx="2.5" fill="${s.color}"/>
-        <text x="${cx}" y="${y + 66}" text-anchor="middle" font-family="Prompt" font-weight="600" font-size="${fs}" fill="#1f2d3d">${esc(name)}</text>
+        <text x="${cx}" y="${y + 66}" text-anchor="middle" font-family="Prompt" font-weight="600" font-size="${fs}" fill="#f2f6ff">${esc(name)}</text>
         <text x="${cx}" y="${y + h - 18}" text-anchor="middle" font-family="Prompt" font-size="24" fill="${col}">${esc(st.text)}${icon}</text>
-        <text x="${x + w - 14}" y="${y + 36}" text-anchor="end" font-family="Prompt" font-size="20" fill="#6b7a90">${st.done}/${st.total}</text>
+        <text x="${x + w - 14}" y="${y + 36}" text-anchor="end" font-family="Prompt" font-size="20" fill="#9aa8d6">${st.done}/${st.total}</text>
         <g transform="translate(${x + 30},${y + 40}) scale(1.9)"><g class="mood-face">${faceMarkup(moodOf(s).k)}</g></g>
       </g>
     </g>`;
@@ -279,21 +279,21 @@
     const tw = 168, gap = (w - 40 - tw * 4) / 3;
     const tiles = LEVELS.map((l, i) => {
       const tx = x + 20 + i * (tw + gap), ty = y + 58;
-      return `<rect x="${tx}" y="${ty}" width="${tw}" height="138" rx="16" fill="${LEVEL_COLOR[l]}" fill-opacity=".14" stroke="${LEVEL_COLOR[l]}" stroke-width="3"/>
+      return `<rect x="${tx}" y="${ty}" width="${tw}" height="138" rx="16" fill="${LEVEL_COLOR[l]}" fill-opacity=".16" stroke="${LEVEL_COLOR[l]}" stroke-width="3"/>
         <circle cx="${tx + 34}" cy="${ty + 34}" r="22" fill="${LEVEL_COLOR[l]}"/>
         <text x="${tx + 34}" y="${ty + 44}" text-anchor="middle" font-family="Prompt" font-weight="600" font-size="28" fill="#04122e">${l}</text>
-        <text x="${tx + tw - 18}" y="${ty + 52}" text-anchor="end" font-family="Prompt" font-weight="600" font-size="44" fill="#1f2d3d">${counts[l]}</text>
+        <text x="${tx + tw - 18}" y="${ty + 52}" text-anchor="end" font-family="Prompt" font-weight="600" font-size="44" fill="#fff">${counts[l]}</text>
         <text x="${tx + tw / 2}" y="${ty + 112}" text-anchor="middle" font-family="Prompt" font-size="24" fill="${LEVEL_COLOR[l]}">${desc[l]}</text>`;
     }).join("");
     const by = y + 222, bx = x + 330, bw = w - 330 - 100;
     return `<g class="desk-hit" data-focus-jump="1" tabindex="0" role="button" aria-label="ดูประเด็นเน้นย้ำ">
-      <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="18" fill="#ffffff" fill-opacity=".95" stroke="#9cc3ea" stroke-width="2"/>
-      <text x="${x + 22}" y="${y + 40}" font-family="Prompt" font-weight="600" font-size="26" fill="#1f5f9e">ระดับประเด็นเน้นย้ำ · ${TH_MON[viewDate.getMonth()]} ${String(viewDate.getFullYear() + 543).slice(2)}</text>
+      <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="18" fill="#0a1233" stroke="#3de0ff" stroke-opacity=".6" stroke-width="2"/>
+      <text x="${x + 22}" y="${y + 40}" font-family="Prompt" font-weight="600" font-size="26" fill="#bff4ff">ระดับประเด็นเน้นย้ำ · ${TH_MON[viewDate.getMonth()]} ${String(viewDate.getFullYear() + 543).slice(2)}</text>
       ${tiles}
-      <text x="${x + 22}" y="${by + 26}" font-family="Prompt" font-size="25" fill="#33465a">รายงานประจำเดือน: ${pct}%</text>
-      <rect x="${bx}" y="${by + 4}" width="${bw}" height="28" rx="14" fill="#e6edf5" stroke="#cfd9e4"/>
+      <text x="${x + 22}" y="${by + 26}" font-family="Prompt" font-size="25" fill="#dbe4ff">รายงานประจำเดือน: ${pct}%</text>
+      <rect x="${bx}" y="${by + 4}" width="${bw}" height="28" rx="14" fill="#14214f" stroke="#2a3b7d"/>
       <rect x="${bx}" y="${by + 4}" width="${Math.max(0, bw * pct / 100)}" height="28" rx="14" fill="url(#barGrad)"/>
-      <text x="${x + w - 22}" y="${by + 26}" text-anchor="end" font-family="Prompt" font-size="25" fill="#1f6fd1">${done}/${all.length}</text>
+      <text x="${x + w - 22}" y="${by + 26}" text-anchor="end" font-family="Prompt" font-size="25" fill="#3de0ff">${done}/${all.length}</text>
     </g>`;
   }
 
