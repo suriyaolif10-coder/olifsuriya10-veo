@@ -187,7 +187,7 @@
   ];
   const BOARD = { x: 192, y: 98, w: 764, h: 292 };
 
-  function seatTag(s, seat) {
+  function seatTag(s, seat, i) {
     const st = deskStatus(s);
     const col = STATUS_COLOR[st.k];
     const t = seat.tag, w = Math.max(t.w, 244), h = t.h, y = t.y;
@@ -195,7 +195,7 @@
     const name = s.name.length > 8 ? s.name.slice(0, 8) + "…" : s.name;
     const icon = st.k === "late" ? " ⚠" : (st.k === "ok" || st.k === "sent") ? " ✓" : "";
     const fs = name.length > 5 ? 40 : 52;
-    return `<g class="desk-hit" data-staff="${esc(s.id)}" tabindex="0" role="button" aria-label="${esc(s.name)}: ${esc(st.text)}">
+    return `<g class="desk-hit" data-staff="${esc(s.id)}" data-seat="${i}" tabindex="0" role="button" aria-label="${esc(s.name)}: ${esc(st.text)}">
       <rect x="${seat.hit.x}" y="${seat.hit.y}" width="${seat.hit.w}" height="${seat.hit.h}" fill="transparent"/>
       <g class="tag ${st.k}">
         <rect class="tag-bg" x="${x}" y="${y}" width="${w}" height="${h}" rx="20" fill="#0c1438" stroke="${col}" stroke-width="4" style="color:${col}"/>
@@ -241,17 +241,147 @@
   }
 
   function renderRoom() {
-    let s = `<defs><linearGradient id="barGrad" x1="0" x2="1"><stop offset="0" stop-color="#3d7bff"/><stop offset="1" stop-color="#3de0ff"/></linearGradient></defs>
-      <image href="assets/room.jpg" x="0" y="0" width="${ROOM_W}" height="${ROOM_H}" preserveAspectRatio="xMidYMid slice"/>`;
-    s += boardPanel();
-    state.staff.slice(0, MAX_STAFF).forEach((st, i) => { s += seatTag(st, SEATS[i]); });
-    // พัฒนาการอำเภอ: ตัวละครที่เดินอยู่กลางห้อง และโต๊ะด้านหน้า
-    s += `<g class="desk-hit" data-boss="1" tabindex="0" role="button" aria-label="ตั้งค่าห้องคุมงาน">
-      <rect x="440" y="550" width="270" height="560" fill="transparent"/>
-      <rect x="350" y="1150" width="450" height="360" fill="transparent"/></g>`;
     const svg = $("#room");
-    svg.setAttribute("viewBox", `0 0 ${ROOM_W} ${ROOM_H}`);
-    svg.innerHTML = s;
+    if (!svg.querySelector("#tagLayer")) {
+      svg.setAttribute("viewBox", `0 0 ${ROOM_W} ${ROOM_H}`);
+      svg.innerHTML = `<defs><linearGradient id="barGrad" x1="0" x2="1"><stop offset="0" stop-color="#3d7bff"/><stop offset="1" stop-color="#3de0ff"/></linearGradient></defs>
+        <image href="assets/room.jpg" x="0" y="0" width="${ROOM_W}" height="${ROOM_H}"/>
+        <g class="desk-hit" data-boss="1" tabindex="0" role="button" aria-label="ตั้งค่าห้องคุมงาน"><rect x="350" y="1190" width="450" height="320" fill="transparent"/></g>
+        <g id="boardLayer"></g>
+        <g id="officer" class="desk-hit" data-boss="1" aria-hidden="true">
+          <ellipse cx="0" cy="-4" rx="70" ry="16" fill="rgba(0,0,0,.35)"/>
+          <g class="officer-body"><image href="assets/officer.png" x="${-OFF.w / 2}" y="${-OFF.h}" width="${OFF.w}" height="${OFF.h}"/></g>
+        </g>
+        <g id="tagLayer"></g>
+        <g id="bubbleLayer" pointer-events="none"></g>`;
+      placeOfficer(officer.x, officer.y);
+    }
+    svg.querySelector("#boardLayer").innerHTML = boardPanel();
+    svg.querySelector("#tagLayer").innerHTML = state.staff.slice(0, MAX_STAFF).map((st, i) => seatTag(st, SEATS[i], i)).join("");
+  }
+
+  /* ---------------- พัฒนาการอำเภอเดินตรวจงาน ---------------- */
+  const OFF = { w: 182, h: 468 };                // ขนาดภาพตัวละคร
+  const HOME = { x: 585, y: 1089 };              // ตำแหน่งเดิมในภาพ (กึ่งกลางเท้า)
+  const AISLE_X = 575;
+  const STAND = [ { x: 520, y: 830 }, { x: 632, y: 830 }, { x: 520, y: 1160 }, { x: 632, y: 1160 } ];
+  const officer = { x: HOME.x, y: HOME.y, busy: false, token: 0, patrolIdx: 0 };
+  const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const scaleAt = y => 0.86 + (y - 830) / (1160 - 830) * 0.16;
+
+  function placeOfficer(x, y) {
+    officer.x = x; officer.y = y;
+    const g = document.getElementById("officer");
+    if (g) g.setAttribute("transform", `translate(${x.toFixed(1)},${y.toFixed(1)}) scale(${scaleAt(y).toFixed(3)})`);
+  }
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  function walkTo(tx, ty, token) {
+    const pts = [[officer.x, officer.y]];
+    if (Math.abs(officer.y - ty) > 20) { pts.push([AISLE_X, officer.y]); pts.push([AISLE_X, ty]); }
+    pts.push([tx, ty]);
+    const segs = [];
+    for (let i = 1; i < pts.length; i++) {
+      const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+      if (d > 0.5) segs.push({ a: pts[i - 1], b: pts[i], d });
+    }
+    const total = segs.reduce((t, sg) => t + sg.d, 0);
+    if (!total) return Promise.resolve();
+    if (reduceMotion) { placeOfficer(tx, ty); return Promise.resolve(); }
+    const dur = Math.max(500, total / 0.32); // ~320 หน่วยต่อวินาที
+    const body = document.querySelector("#officer .officer-body");
+    body && body.classList.add("walking");
+    return new Promise(res => {
+      const t0 = performance.now();
+      const step = now => {
+        if (token !== officer.token) { body && body.classList.remove("walking"); return res(); }
+        let dist = Math.min(1, (now - t0) / dur) * total;
+        let i = 0; while (i < segs.length - 1 && dist > segs[i].d) { dist -= segs[i].d; i++; }
+        const sg = segs[i], k = Math.min(1, dist / sg.d);
+        placeOfficer(sg.a[0] + (sg.b[0] - sg.a[0]) * k, sg.a[1] + (sg.b[1] - sg.a[1]) * k);
+        if (now - t0 < dur) requestAnimationFrame(step);
+        else { placeOfficer(tx, ty); body && body.classList.remove("walking"); res(); }
+      };
+      requestAnimationFrame(step);
+    });
+  }
+
+  // grow: "right" = กล่องยื่นไปทางขวาของจุดชี้, "left" = ยื่นไปทางซ้าย
+  function bubble(x, y, text, kind, grow) {
+    const layer = document.getElementById("bubbleLayer"); if (!layer) return;
+    const w = Math.min(560, 40 + [...text].length * 21), h = 64;
+    const want = grow === "right" ? x - 40 : grow === "left" ? x - w + 40 : x - w / 2;
+    const bx = Math.max(12, Math.min(ROOM_W - w - 12, want));
+    const by = y - h - 18;
+    const tail = Math.max(bx + 24, Math.min(bx + w - 24, x));
+    const fill = kind === "staff" ? "#fff4d6" : "#ffffff", stroke = kind === "staff" ? "#ffb43d" : "#3de0ff";
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    g.setAttribute("class", "bubble " + (kind || ""));
+    g.innerHTML = `<rect x="${bx}" y="${by}" width="${w}" height="${h}" rx="22" fill="${fill}" stroke="${stroke}" stroke-width="4"/>
+      <path d="M${tail - 14},${by + h - 2} L${tail},${by + h + 18} L${tail + 14},${by + h - 2}z" fill="${fill}" stroke="${stroke}" stroke-width="4" stroke-linejoin="round"/>
+      <rect x="${tail - 16}" y="${by + h - 6}" width="32" height="6" fill="${fill}"/>
+      <text x="${bx + w / 2}" y="${by + 42}" text-anchor="middle" font-family="Prompt" font-size="28" font-weight="500" fill="#14214f">${esc(text)}</text>`;
+    layer.appendChild(g);
+    return g;
+  }
+  function clearBubbles() { const l = document.getElementById("bubbleLayer"); if (l) l.innerHTML = ""; }
+
+  function talkLines(s) {
+    const rs = reportsOf(s.id);
+    const short = t => t.replace(/^ประเด็นที่ \d+ \(([^)]+)\) .*/, "ประเด็น $1").replace(/^รายงาน/, "").slice(0, 16);
+    const late = rs.find(r => effective(r) === "late");
+    if (late) return [`${s.name} ${short(late.title)} ค้างอยู่นะ`, "กำลังเร่งเลยครับ/ค่ะ!"];
+    const doing = rs.find(r => entry(r).s === "doing");
+    if (doing) return [`${short(doing.title)} ใกล้เสร็จยัง?`, "อีกนิดเดียว!"];
+    const todo = rs.find(r => entry(r).s === "none");
+    if (todo) return [`อย่าลืม ${short(todo.title)} ส่ง ${fmtDue(todo)}`, "รับทราบ!"];
+    if (rs.length && rs.every(r => entry(r).s === "ok")) return [`ขอบคุณ ${s.name} ตรวจครบแล้ว 🎉`, "ยินดีครับ/ค่ะ"];
+    if (rs.length) return [`${s.name} ส่งครบแล้ว เยี่ยมมาก 👍`, "ขอบคุณครับ/ค่ะ"];
+    return [`${s.name} ช่วงนี้เป็นยังไงบ้าง?`, "สบายดี!"];
+  }
+
+  async function visit(i, opts = {}) {
+    const s = state.staff[i]; if (!s || i >= MAX_STAFF) return;
+    const token = ++officer.token;
+    officer.busy = true;
+    clearBubbles();
+    await walkTo(STAND[i].x, STAND[i].y, token);
+    if (token !== officer.token) return;
+    const [say, reply] = talkLines(s);
+    const sc = scaleAt(officer.y);
+    const leftSeat = i % 2 === 0;
+    bubble(officer.x, officer.y - OFF.h * sc + 10, say, "", leftSeat ? "right" : "left");
+    const tagG = document.querySelector(`#tagLayer [data-seat="${i}"] .tag`);
+    tagG && tagG.classList.add("nudge");
+    if (opts.then) { await sleep(500); if (token === officer.token) opts.then(); }
+    await sleep(1300);
+    if (token !== officer.token) return;
+    const t = SEATS[i].tag;
+    bubble(leftSeat ? t.x + 70 : t.x + t.w - 70, t.y - 4, reply, "staff", leftSeat ? "left" : "right");
+    await sleep(2200);
+    if (token !== officer.token) return;
+    clearBubbles();
+    tagG && tagG.classList.remove("nudge");
+    officer.busy = false;
+  }
+
+  // เดินตรวจเองอัตโนมัติ: ไปหาคนที่มีงานค้างก่อน
+  async function patrol() {
+    while (true) {
+      await sleep(4500);
+      if (document.hidden || officer.busy || (sheet && sheet.open)) continue;
+      const staff = state.staff.slice(0, MAX_STAFF);
+      if (!staff.length) continue;
+      const lateIdx = staff.map((s, i) => deskStatus(s).k === "late" ? i : -1).filter(i => i >= 0);
+      const pool = lateIdx.length ? lateIdx : staff.map((_, i) => i);
+      const i = pool[officer.patrolIdx++ % pool.length];
+      await visit(i);
+      if (officer.busy) continue;
+      // กลับที่เดิมบ้าง
+      if (officer.patrolIdx % pool.length === 0) {
+        const tk = ++officer.token; await walkTo(HOME.x, HOME.y, tk);
+      }
+    }
   }
 
   /* ---------------- side panels ---------------- */
@@ -377,6 +507,14 @@
   /* ---------------- staff sheet ---------------- */
   const sheet = $("#sheet"), form = $("#sheetForm");
   let openStaffId = null;
+
+  // แตะเจ้าหน้าที่: พัฒนาการอำเภอเดินไปหา แล้วเปิดรายละเอียด
+  function goToStaff(id, fromRoom) {
+    const i = state.staff.findIndex(x => x.id === id);
+    if (i < 0 || i >= MAX_STAFF) return openStaff(id);
+    if (fromRoom) visit(i, { then: () => openStaff(id) });
+    else { openStaff(id); visit(i); }
+  }
 
   function openStaff(id) {
     openStaffId = id;
@@ -581,7 +719,7 @@
   document.addEventListener("click", e => {
     if (sheet.contains(e.target) || e.target.closest("select")) return;
     const hit = e.target.closest("[data-staff]");
-    if (hit) return openStaff(hit.dataset.staff);
+    if (hit) return goToStaff(hit.dataset.staff, !!e.target.closest("#room"));
     if (e.target.closest("[data-boss]")) return openSettings();
     if (e.target.closest("[data-focus-jump]")) return $("#focus").scrollIntoView({ behavior: "smooth" });
   });
@@ -591,7 +729,7 @@
     if (!hit) return;
     e.preventDefault();
     if (hit.dataset.focusJump) return $("#focus").scrollIntoView({ behavior: "smooth" });
-    hit.dataset.staff ? openStaff(hit.dataset.staff) : openSettings();
+    hit.dataset.staff ? goToStaff(hit.dataset.staff, true) : openSettings();
   });
   sheet.addEventListener("click", e => { if (e.target === sheet) sheet.close(); });
   sheet.addEventListener("close", () => { openStaffId = null; });
@@ -616,4 +754,5 @@
 
   save();
   renderAll();
+  patrol();
 })();

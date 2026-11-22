@@ -269,3 +269,20 @@ h1 { font-size: 18px; margin: 0; font-weight: 600; }
 .lvl-seg button { width: 40px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: #0b1538; color: var(--muted); font: 600 15px Prompt, sans-serif; cursor: pointer; }
 .lvl-seg button[aria-pressed="true"] { background: var(--lc); border-color: var(--lc); color: #04122e; }
 @media (max-width: 900px) { .focus-body { grid-template-columns: 1fr; } }
+
+/* ---------- การเคลื่อนไหวในห้อง ---------- */
+#officer { cursor: pointer; }
+.officer-body.walking { animation: step .42s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes step { 0%, 100% { transform: translateY(0) rotate(-1.6deg); } 50% { transform: translateY(-9px) rotate(1.6deg); } }
+#tagLayer .tag { animation: float 3.2s ease-in-out infinite; transform-box: fill-box; }
+#tagLayer .desk-hit:nth-child(2) .tag { animation-delay: -.8s; }
+#tagLayer .desk-hit:nth-child(3) .tag { animation-delay: -1.6s; }
+#tagLayer .desk-hit:nth-child(4) .tag { animation-delay: -2.4s; }
+@keyframes float { 50% { transform: translateY(-6px); } }
+#tagLayer .tag.nudge { animation: nudge .5s ease-in-out 3; }
+@keyframes nudge { 25% { transform: translateY(-14px) rotate(-2deg); } 75% { transform: translateY(-4px) rotate(2deg); } }
+.bubble { animation: pop .25s ease-out both; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .officer-body.walking, #tagLayer .tag, #tagLayer .tag.nudge, .bubble { animation: none; }
+}
