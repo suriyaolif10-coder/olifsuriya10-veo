@@ -43,9 +43,9 @@
   function seed() {
     const staff = [
       { id: uid(), name: "พลอย", color: PALETTE[0] },
-      { id: uid(), name: "เบล", color: PALETTE[1] },
-      { id: uid(), name: "ต้น", color: PALETTE[2] },
-      { id: uid(), name: "ฝน", color: PALETTE[3] },
+      { id: uid(), name: "นัท", color: PALETTE[1] },
+      { id: uid(), name: "พราว", color: PALETTE[2] },
+      { id: uid(), name: "ลีฟ", color: PALETTE[3] },
     ];
     const R = (i, title, dueDay, focus) => ({ id: uid(), staffId: staff[i].id, title, dueDay, ...(focus ? { focus } : {}) });
     const F = k => { const f = FOCUS.find(x => x.k === k); return R(f.owner, focusTitle(f), f.day, k); };
@@ -63,7 +63,7 @@
     return {
       version: 1,
       office: { title: "ห้องคุมงาน สพอ.", sub: "สำนักงานพัฒนาชุมชนอำเภอ · รายงานประจำเดือน" },
-      staff, reports, months, log: [], focusV: 1,
+      staff, reports, months, log: [], focusV: 1, namesV: 1,
     };
   }
 
@@ -87,6 +87,12 @@
 
   // เพิ่มประเด็นเน้นย้ำให้ข้อมูลเดิมที่ยังไม่มี
   function migrate(d) {
+    // เปลี่ยนชื่อตัวอย่างชุดเดิมให้ตรงกับภาพห้องใหม่ (เฉพาะถ้ายังเป็นชื่อตัวอย่าง)
+    if (!d.namesV) {
+      const oldN = ["พลอย", "เบล", "ต้น", "ฝน"], newN = ["พลอย", "นัท", "พราว", "ลีฟ"];
+      if (d.staff.length === 4 && d.staff.every((x, i) => x.name === oldN[i])) d.staff.forEach((x, i) => { x.name = newN[i]; });
+      d.namesV = 1;
+    }
     if (d.focusV) return d;
     FOCUS.forEach(f => {
       if (d.reports.some(r => r.focus === f.k)) return;
@@ -170,193 +176,82 @@
   }
   const levelOf = (r, key = mk()) => ((state.months[key] || {})[r.id] || {}).level || "";
 
-  /* ---------------- isometric room ---------------- */
-  const O = { x: 500, y: 150 }, TW = 32, TH = 16, ZS = 32, N = 13;
-  const iso = (x, y, z = 0) => [O.x + (x - y) * TW, O.y + (x + y) * TH - z * ZS];
-  const pts = arr => arr.map(p => iso(...p).map(v => v.toFixed(1)).join(",")).join(" ");
-  function shade(hex, f) {
-    const n = parseInt(hex.slice(1), 16);
-    const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(c => Math.max(0, Math.min(255, Math.round(f < 0 ? c * (1 + f) : c + (255 - c) * f))));
-    return `rgb(${ch.join(",")})`;
-  }
-  function box(x, y, z, w, d, h, col, extra = "") {
-    return `<g ${extra}>
-      <polygon points="${pts([[x + w, y, z], [x + w, y + d, z], [x + w, y + d, z + h], [x + w, y, z + h]])}" fill="${shade(col, -0.35)}"/>
-      <polygon points="${pts([[x, y + d, z], [x + w, y + d, z], [x + w, y + d, z + h], [x, y + d, z + h]])}" fill="${shade(col, -0.18)}"/>
-      <polygon points="${pts([[x, y, z + h], [x + w, y, z + h], [x + w, y + d, z + h], [x, y + d, z + h]])}" fill="${col}"/>
-    </g>`;
-  }
-  function plant(x, y) {
-    const [px, py] = iso(x, y, 0);
-    return `${box(x - 0.3, y - 0.3, 0, 0.6, 0.6, 0.55, "#c9d3f0")}
-      <g transform="translate(${px},${py - 30})">
-        <circle cx="0" cy="-14" r="17" fill="#1f9d57"/><circle cx="-12" cy="-4" r="12" fill="#25b866"/>
-        <circle cx="12" cy="-5" r="12" fill="#1c8d4e"/><circle cx="2" cy="-28" r="11" fill="#2fcf75"/>
-      </g>`;
-  }
-  // จัดวางโต๊ะ 4 ตัว (หน่วยเป็นช่องพื้น)
-  const DESKS = [{ x: 1.5, y: 2.5 }, { x: 7, y: 2.5 }, { x: 1.5, y: 8 }, { x: 7, y: 8 }];
+  /* ---------------- ห้องทำงาน (ภาพพื้นหลัง + ป้ายสถานะสด) ---------------- */
+  // พิกัดในภาพ assets/room.jpg (1152×1560) — ป้ายของจริงวางทับป้ายในภาพ
+  const ROOM_W = 1152, ROOM_H = 1560;
+  const SEATS = [
+    { tag: { x: 246, y: 428, w: 220, h: 122 }, hit: { x: 160, y: 550, w: 345, h: 225 } }, // หลังซ้าย
+    { tag: { x: 694, y: 428, w: 196, h: 122 }, hit: { x: 635, y: 550, w: 315, h: 225 } }, // หลังขวา
+    { tag: { x: 214, y: 768, w: 230, h: 128 }, hit: { x: 155, y: 900, w: 350, h: 315 } }, // หน้าซ้าย
+    { tag: { x: 706, y: 768, w: 240, h: 128 }, hit: { x: 645, y: 900, w: 350, h: 315 } }, // หน้าขวา
+  ];
+  const BOARD = { x: 192, y: 98, w: 764, h: 292 };
 
-  function person(px, py, color, cls, opts = {}) {
-    const late = cls.includes("late");
-    return `<g class="person ${cls}" style="transform-box:fill-box">
-      <ellipse cx="${px}" cy="${py + 4}" rx="20" ry="8" fill="rgba(0,0,0,.35)"/>
-      <path d="M${px - 15},${py} q0,-30 15,-32 q15,2 15,32 z" fill="${color}"/>
-      <path d="M${px - 15},${py} q0,-30 15,-32 q15,2 15,32 z" fill="url(#bodyShade)"/>
-      <circle cx="${px}" cy="${py - 44}" r="12" fill="#f0c39c"/>
-      <path d="M${px - 12.5},${py - 46} a12.5,12.5 0 0 1 25,0 q-5,-6 -12.5,-6 q-7.5,0 -12.5,6z" fill="${opts.hair || "#2b2140"}"/>
-      ${late ? `<g class="alert"><circle cx="${px + 18}" cy="${py - 64}" r="9" fill="${STATUS_COLOR.late}"/><text x="${px + 18}" y="${py - 59.5}" text-anchor="middle" font-size="13" font-weight="700" fill="#fff" font-family="Prompt">!</text></g>` : ""}
-      ${cls.includes("ok") ? `<g><circle cx="${px + 18}" cy="${py - 64}" r="9" fill="${STATUS_COLOR.ok}"/><path d="M${px + 13.5},${py - 64} l3,3 l6,-6" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"/></g>` : ""}
-    </g>`;
-  }
-
-  function workstation(dx, dy, s, idx) {
+  function seatTag(s, seat) {
     const st = deskStatus(s);
-    const scr = STATUS_COLOR[st.k];
-    const [lx, ly] = [dx + 2.4, dy + 2.4];
-    let g = "";
-    // โซนพื้นเรืองแสงตามสีเจ้าหน้าที่
-    g += `<polygon points="${pts([[dx - 0.5, dy - 0.5, 0], [lx, dy - 0.5, 0], [lx, ly, 0], [dx - 0.5, ly, 0]])}" fill="${s.color}" fill-opacity=".07" stroke="${s.color}" stroke-opacity=".75" stroke-width="2" class="neon" style="color:${s.color}"/>`;
-    // ขาโต๊ะ
-    [[dx + 0.05, dy + 0.05], [dx + 1.95, dy + 0.05], [dx + 0.05, dy + 0.95], [dx + 1.95, dy + 0.95]].forEach(([x, y]) => {
-      const a = iso(x, y, 0), b = iso(x, y, 0.72);
-      g += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="#aeb8da" stroke-width="3"/>`;
-    });
-    g += box(dx, dy, 0.72, 2, 1, 0.1, "#eef1fb");
-    // จอคอม: หน้าจอหันมาทางผู้ชม เปลี่ยนสีตามสถานะ
-    g += box(dx + 0.55, dy + 0.12, 0.82, 0.9, 0.08, 0.55, "#2a3150");
-    g += `<polygon class="screen ${st.k === "doing" ? "doing" : ""}" points="${pts([[dx + 0.62, dy + 0.205, 0.88], [dx + 1.38, dy + 0.205, 0.88], [dx + 1.38, dy + 0.205, 1.31], [dx + 0.62, dy + 0.205, 1.31]])}" fill="${scr}" opacity=".9"/>`;
-    // แฟ้มรายงานบนโต๊ะ (จำนวนที่ส่งแล้ว)
-    for (let i = 0; i < Math.min(st.done, 5); i++) g += box(dx + 1.55, dy + 0.35, 0.82 + i * 0.07, 0.35, 0.45, 0.06, ["#ffd166", "#7ad7ff", "#ff9ec7", "#b4f08c", "#c9b6ff"][i]);
-    // เก้าอี้ + คน
-    g += box(dx + 0.7, dy + 1.35, 0.35, 0.6, 0.6, 0.1, "#3a4472");
-    const [px, py] = iso(dx + 1, dy + 1.65, 0.45);
-    g += person(px, py, s.color, st.k);
-    return { svg: g, px, py, st };
-  }
-
-  function tag(s, px, py, st, idx) {
-    const w = 176, h = 68, x = px - w / 2, y = py - 150;
     const col = STATUS_COLOR[st.k];
-    const name = s.name.length > 12 ? s.name.slice(0, 12) + "…" : s.name;
+    const t = seat.tag, w = Math.max(t.w, 244), h = t.h, y = t.y;
+    const cx = t.x + t.w / 2, x = cx - w / 2;
+    const name = s.name.length > 8 ? s.name.slice(0, 8) + "…" : s.name;
+    const icon = st.k === "late" ? " ⚠" : (st.k === "ok" || st.k === "sent") ? " ✓" : "";
+    const fs = name.length > 5 ? 40 : 52;
     return `<g class="desk-hit" data-staff="${esc(s.id)}" tabindex="0" role="button" aria-label="${esc(s.name)}: ${esc(st.text)}">
-      <rect x="${px - 50}" y="${y}" width="100" height="${py - y}" fill="transparent"/>
-      <path d="M${px - 8},${y + h} L${px},${y + h + 10} L${px + 8},${y + h} z" fill="#f3f5ff"/>
-      <rect class="tag-bg" x="${x}" y="${y}" width="${w}" height="${h}" rx="16"/>
-      <rect x="${x}" y="${y}" width="6" height="${h}" rx="3" fill="${s.color}"/>
-      <circle cx="${x + 22}" cy="${y + 24}" r="6" fill="${col}"/>
-      <text class="tag-name" x="${x + 36}" y="${y + 31}" style="font-size:24px">${esc(name)}</text>
-      <text x="${x + w - 14}" y="${y + 30}" text-anchor="end" font-family="Prompt" font-size="16" fill="#5a6696">${st.done}/${st.total}</text>
-      <text class="tag-status" x="${x + 16}" y="${y + 56}" style="font-size:18px;fill:${shade(col, -0.35)}">${esc(st.text)}</text>
+      <rect x="${seat.hit.x}" y="${seat.hit.y}" width="${seat.hit.w}" height="${seat.hit.h}" fill="transparent"/>
+      <g class="tag ${st.k}">
+        <rect class="tag-bg" x="${x}" y="${y}" width="${w}" height="${h}" rx="20" fill="#0c1438" stroke="${col}" stroke-width="4" style="color:${col}"/>
+        <rect x="${x + 14}" y="${y + 10}" width="${w - 28}" height="5" rx="2.5" fill="${s.color}"/>
+        <text x="${cx}" y="${y + 66}" text-anchor="middle" font-family="Prompt" font-weight="600" font-size="${fs}" fill="#f2f6ff">${esc(name)}</text>
+        <text x="${cx}" y="${y + h - 18}" text-anchor="middle" font-family="Prompt" font-size="24" fill="${col}">${esc(st.text)}${icon}</text>
+        <text x="${x + w - 14}" y="${y + 36}" text-anchor="end" font-family="Prompt" font-size="20" fill="#9aa8d6">${st.done}/${st.total}</text>
+      </g>
     </g>`;
   }
 
-  function wallBoard() {
-    // บอร์ดความคืบหน้าบนผนังขวา (ระนาบ y=0)
-    const x0 = 3.2, x1 = 10.4, zt = 3.6, zb = 1.0;
-    const [ex, ey] = iso(x0, 0, zt);
-    const U = 40; // หน่วยภายในต่อ 1 ช่อง
-    const W = (x1 - x0) * U, H = (zt - zb) * ZS;
-    let rows = "";
-    const list = state.staff.slice(0, MAX_STAFF);
-    list.forEach((s, i) => {
-      const st = deskStatus(s);
-      const pct = st.total ? st.done / st.total : 0;
-      const y = 30 + i * 13;
-      rows += `<text class="board-small" x="10" y="${y + 8}" style="font-size:10px">${esc(s.name.slice(0, 8))}</text>
-        <rect x="64" y="${y}" width="${W - 110}" height="9" rx="4" fill="#0b1538"/>
-        <rect x="64" y="${y}" width="${Math.max(0, (W - 110) * pct)}" height="9" rx="4" fill="${s.color}"/>
-        <text class="board-small" x="${W - 10}" y="${y + 8}" text-anchor="end" style="font-size:10px">${Math.round(pct * 100)}%</text>`;
+  function boardPanel() {
+    const { x, y, w, h } = BOARD;
+    // ระดับประเด็นเน้นย้ำของเดือนที่ดู
+    const counts = { A: 0, B: 0, C: 0, D: 0 };
+    FOCUS.forEach(f => {
+      const r = state.reports.find(q => q.focus === f.k && state.staff.some(s => s.id === q.staffId));
+      const l = r && levelOf(r); if (l) counts[l]++;
     });
-    return `<polygon points="${pts([[x0 - .1, 0, zb - .1], [x1 + .1, 0, zb - .1], [x1 + .1, 0, zt + .1], [x0 - .1, 0, zt + .1]])}" fill="#3de0ff" opacity=".25"/>
-      <g transform="matrix(${TW / U},${TH / U},0,1,${ex},${ey})">
-        <rect width="${W}" height="${H}" rx="6" fill="#0e2a5c" stroke="#3de0ff" stroke-width="1.5"/>
-        <text class="board-text" x="10" y="19" style="font-size:14px">ความคืบหน้า ${TH_MON[viewDate.getMonth()]} ${String(viewDate.getFullYear() + 543).slice(2)}</text>
-        ${rows}
-      </g>`;
-  }
-
-  function wallClock() {
-    // ป้ายวันเวลาบนผนังซ้าย (ระนาบ x=0)
-    const y0 = 12.7, y1 = 10.1, zt = 3.5, zb = 1.7;
-    const [ex, ey] = iso(0, y0, zt);
-    const U = 40, W = (y0 - y1) * U, H = (zt - zb) * ZS;
-    return `<g transform="matrix(${TW / U},${-TH / U},0,1,${ex},${ey})">
-        <rect width="${W}" height="${H}" rx="6" fill="#14123d" stroke="#ff5bd6" stroke-width="1.5"/>
-        <text id="clockTime" x="${W / 2}" y="30" text-anchor="middle" font-family="Prompt" font-weight="600" font-size="24" fill="#ffd2f4"></text>
-        <text id="clockDate" x="${W / 2}" y="49" text-anchor="middle" font-family="Sarabun" font-size="12" fill="#c9a8ff"></text>
-      </g>`;
-  }
-
-  function bossDesk() {
-    const dx = 10, dy = 10.3;
-    let g = "";
-    g += `<polygon points="${pts([[dx - .6, dy - .5, 0], [dx + 3, dy - .5, 0], [dx + 3, dy + 2.6, 0], [dx - .6, dy + 2.6, 0]])}" fill="#3de0ff" fill-opacity=".06" stroke="#3de0ff" stroke-opacity=".8" stroke-width="2" class="neon" style="color:#3de0ff"/>`;
-    g += box(dx, dy, 0, 2.4, 1, 0.8, "#5b6aa8");
-    g += box(dx - 0.02, dy - 0.02, 0.8, 2.44, 1.04, 0.08, "#dfe5f8");
-    g += box(dx + 0.3, dy + 0.15, 0.88, 0.8, 0.08, 0.55, "#2a3150");
-    g += box(dx + 1.3, dy + 0.15, 0.88, 0.8, 0.08, 0.55, "#2a3150");
-    g += `<polygon points="${pts([[dx + 0.37, dy + 0.235, 0.94], [dx + 1.03, dy + 0.235, 0.94], [dx + 1.03, dy + 0.235, 1.37], [dx + 0.37, dy + 0.235, 1.37]])}" fill="#3de0ff" opacity=".85"/>`;
-    g += `<polygon points="${pts([[dx + 1.37, dy + 0.235, 0.94], [dx + 2.03, dy + 0.235, 0.94], [dx + 2.03, dy + 0.235, 1.37], [dx + 1.37, dy + 0.235, 1.37]])}" fill="#ff5bd6" opacity=".8"/>`;
-    g += box(dx + 0.85, dy + 1.4, 0.35, 0.7, 0.7, 0.1, "#3a4472");
-    const [px, py] = iso(dx + 1.2, dy + 1.75, 0.45);
-    g += person(px, py, "#1f3f8f", "", { hair: "#111" });
-    const [lx, ly] = iso(dx + 2.6, dy + 2.6, 0);
-    g += `<g class="desk-hit" data-boss="1" tabindex="0" role="button" aria-label="ตั้งค่าห้องคุมงาน">
-      <rect x="${px - 95}" y="${py + 14}" width="190" height="30" rx="15" fill="#0d1840" stroke="#3de0ff"/>
-      <text x="${px}" y="${py + 35}" text-anchor="middle" font-family="Prompt" font-size="17" fill="#bff4ff">พัฒนาการอำเภอ · ผู้คุม</text></g>`;
-    return g;
+    const all = state.reports.filter(r => state.staff.some(s => s.id === r.staffId));
+    const done = all.filter(r => ["sent", "ok"].includes(effective(r))).length;
+    const pct = all.length ? Math.round(done / all.length * 100) : 0;
+    const desc = { A: "ดีมาก", B: "ดี", C: "พอใช้", D: "ต้องเร่ง" };
+    const tw = 168, gap = (w - 40 - tw * 4) / 3;
+    const tiles = LEVELS.map((l, i) => {
+      const tx = x + 20 + i * (tw + gap), ty = y + 58;
+      return `<rect x="${tx}" y="${ty}" width="${tw}" height="138" rx="16" fill="${LEVEL_COLOR[l]}" fill-opacity=".16" stroke="${LEVEL_COLOR[l]}" stroke-width="3"/>
+        <circle cx="${tx + 34}" cy="${ty + 34}" r="22" fill="${LEVEL_COLOR[l]}"/>
+        <text x="${tx + 34}" y="${ty + 44}" text-anchor="middle" font-family="Prompt" font-weight="600" font-size="28" fill="#04122e">${l}</text>
+        <text x="${tx + tw - 18}" y="${ty + 52}" text-anchor="end" font-family="Prompt" font-weight="600" font-size="44" fill="#fff">${counts[l]}</text>
+        <text x="${tx + tw / 2}" y="${ty + 112}" text-anchor="middle" font-family="Prompt" font-size="24" fill="${LEVEL_COLOR[l]}">${desc[l]}</text>`;
+    }).join("");
+    const by = y + 222, bx = x + 330, bw = w - 330 - 100;
+    return `<g class="desk-hit" data-focus-jump="1" tabindex="0" role="button" aria-label="ดูประเด็นเน้นย้ำ">
+      <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="18" fill="#0a1233" stroke="#3de0ff" stroke-opacity=".6" stroke-width="2"/>
+      <text x="${x + 22}" y="${y + 40}" font-family="Prompt" font-weight="600" font-size="26" fill="#bff4ff">ระดับประเด็นเน้นย้ำ · ${TH_MON[viewDate.getMonth()]} ${String(viewDate.getFullYear() + 543).slice(2)}</text>
+      ${tiles}
+      <text x="${x + 22}" y="${by + 26}" font-family="Prompt" font-size="25" fill="#dbe4ff">รายงานประจำเดือน: ${pct}%</text>
+      <rect x="${bx}" y="${by + 4}" width="${bw}" height="28" rx="14" fill="#14214f" stroke="#2a3b7d"/>
+      <rect x="${bx}" y="${by + 4}" width="${Math.max(0, bw * pct / 100)}" height="28" rx="14" fill="url(#barGrad)"/>
+      <text x="${x + w - 22}" y="${by + 26}" text-anchor="end" font-family="Prompt" font-size="25" fill="#3de0ff">${done}/${all.length}</text>
+    </g>`;
   }
 
   function renderRoom() {
-    let s = `<defs>
-      <linearGradient id="bodyShade" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".25"/></linearGradient>
-      <linearGradient id="wallR" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a2a6c"/><stop offset="1" stop-color="#121f55"/></linearGradient>
-      <linearGradient id="wallL" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#141f57"/><stop offset="1" stop-color="#0e1847"/></linearGradient>
-    </defs>`;
-    // พื้น
-    s += `<polygon points="${pts([[0, 0, 0], [N, 0, 0], [N, N, 0], [0, N, 0]])}" fill="#0f1a48"/>`;
-    let grid = "";
-    for (let i = 1; i < N; i++) {
-      const a = iso(i, 0), b = iso(i, N), c = iso(0, i), d = iso(N, i);
-      grid += `M${a[0]},${a[1]}L${b[0]},${b[1]}M${c[0]},${c[1]}L${d[0]},${d[1]}`;
-    }
-    s += `<path d="${grid}" stroke="#1b2c6e" stroke-width="1"/>`;
-    // ผนัง
-    const WH = 4;
-    s += `<polygon points="${pts([[0, 0, 0], [N, 0, 0], [N, 0, WH], [0, 0, WH]])}" fill="url(#wallR)"/>`;
-    s += `<polygon points="${pts([[0, 0, 0], [0, N, 0], [0, N, WH], [0, 0, WH]])}" fill="url(#wallL)"/>`;
-    const line = (p, q, c, w = 3) => { const a = iso(...p), b = iso(...q); return `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${c}" stroke-width="${w}" class="neon" style="color:${c}" stroke-linecap="round"/>`; };
-    s += line([0, 0, WH], [N, 0, WH], "#ff5bd6") + line([0, 0, WH], [0, N, WH], "#ff5bd6");
-    s += line([0, 0, 0], [N, 0, 0], "#3de0ff", 2) + line([0, 0, 0], [0, N, 0], "#3de0ff", 2);
-    s += line([0, 0, 0], [0, 0, WH], "#7b8cff", 2);
-    s += line([N, 0, 0], [N, N, 0], "#ff5bd6", 2.5) + line([0, N, 0], [N, N, 0], "#ff5bd6", 2.5);
-    s += line([0, 0, 0.6], [N, 0, 0.6], "#3de0ff55", 1.5) + line([0, 0, 0.6], [0, N, 0.6], "#3de0ff55", 1.5);
-    s += wallBoard() + wallClock();
-    s += plant(12.2, 0.9) + plant(0.9, 12.2);
-
-    const staff = state.staff.slice(0, MAX_STAFF);
-    const items = staff.map((st, i) => ({ s: st, d: DESKS[i] }));
-    items.sort((a, b) => (a.d.x + a.d.y) - (b.d.x + b.d.y));
-    const tags = [];
-    items.forEach(({ s: st, d }, i) => {
-      const w = workstation(d.x, d.y, st, i);
-      s += `<g class="desk-hit" data-staff="${esc(st.id)}" aria-hidden="true">${w.svg}</g>`;
-      tags.push(tag(st, w.px, w.py, w.st, i));
-    });
-    s += bossDesk();
-    s += tags.join("");
+    let s = `<defs><linearGradient id="barGrad" x1="0" x2="1"><stop offset="0" stop-color="#3d7bff"/><stop offset="1" stop-color="#3de0ff"/></linearGradient></defs>
+      <image href="assets/room.jpg" x="0" y="0" width="${ROOM_W}" height="${ROOM_H}" preserveAspectRatio="xMidYMid slice"/>`;
+    s += boardPanel();
+    state.staff.slice(0, MAX_STAFF).forEach((st, i) => { s += seatTag(st, SEATS[i]); });
+    // พัฒนาการอำเภอ: ตัวละครที่เดินอยู่กลางห้อง และโต๊ะด้านหน้า
+    s += `<g class="desk-hit" data-boss="1" tabindex="0" role="button" aria-label="ตั้งค่าห้องคุมงาน">
+      <rect x="440" y="550" width="270" height="560" fill="transparent"/>
+      <rect x="350" y="1150" width="450" height="360" fill="transparent"/></g>`;
     const svg = $("#room");
-    svg.setAttribute("viewBox", "70 0 860 600");
+    svg.setAttribute("viewBox", `0 0 ${ROOM_W} ${ROOM_H}`);
     svg.innerHTML = s;
-    tickClock();
-  }
-
-  function tickClock() {
-    const now = new Date();
-    const t = document.getElementById("clockTime"), d = document.getElementById("clockDate");
-    if (t) t.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    if (d) d.textContent = `${TH_DAY[now.getDay()]} ${now.getDate()} ${TH_MON[now.getMonth()]} ${String(now.getFullYear() + 543).slice(2)}`;
   }
 
   /* ---------------- side panels ---------------- */
@@ -688,12 +583,14 @@
     const hit = e.target.closest("[data-staff]");
     if (hit) return openStaff(hit.dataset.staff);
     if (e.target.closest("[data-boss]")) return openSettings();
+    if (e.target.closest("[data-focus-jump]")) return $("#focus").scrollIntoView({ behavior: "smooth" });
   });
   $("#room").addEventListener("keydown", e => {
     if (e.key !== "Enter" && e.key !== " ") return;
-    const hit = e.target.closest("[data-staff],[data-boss]");
+    const hit = e.target.closest("[data-staff],[data-boss],[data-focus-jump]");
     if (!hit) return;
     e.preventDefault();
+    if (hit.dataset.focusJump) return $("#focus").scrollIntoView({ behavior: "smooth" });
     hit.dataset.staff ? openStaff(hit.dataset.staff) : openSettings();
   });
   sheet.addEventListener("click", e => { if (e.target === sheet) sheet.close(); });
@@ -713,14 +610,10 @@
   $("#settingsBtn").onclick = openSettings;
   $("#exportBtn").onclick = exportData;
 
-  setInterval(tickClock, 30000);
   // รีเฟรชสถานะเลยกำหนดเมื่อข้ามวัน
   let lastDay = new Date().getDate();
   setInterval(() => { if (new Date().getDate() !== lastDay) { lastDay = new Date().getDate(); renderAll(); } }, 60000);
 
   save();
   renderAll();
-  // บนมือถือ เลื่อนภาพห้องให้อยู่ตรงกลาง
-  const sc = $("#roomScroll");
-  if (sc && sc.scrollWidth > sc.clientWidth) sc.scrollLeft = (sc.scrollWidth - sc.clientWidth) / 2;
 })();

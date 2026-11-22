@@ -77,10 +77,10 @@ h1 { font-size: 18px; margin: 0; font-weight: 600; }
   padding: 14px 16px 24px; max-width: 1280px; margin: 0 auto;
 }
 .room-wrap {
-  background: #081029; border: 1px solid var(--line); border-radius: var(--radius);
+  background: #080b3c; border: 1px solid var(--line); border-radius: var(--radius);
   padding: 8px; position: relative; overflow: hidden; align-self: start;
 }
-#room { width: 100%; height: auto; display: block; }
+#room { width: 100%; height: auto; max-height: 86vh; display: block; margin: 0 auto; border-radius: 10px; aspect-ratio: 1152 / 1560; }
 .hint { margin: 4px 8px 2px; color: var(--muted); font-size: 12px; text-align: center; }
 
 .side h2 { font-size: 15px; margin: 4px 0 8px; color: var(--cyan); font-weight: 500; }
@@ -140,8 +140,10 @@ h1 { font-size: 18px; margin: 0; font-weight: 600; }
 /* ---------- room svg ---------- */
 .desk-hit { cursor: pointer; }
 .desk-hit:focus { outline: none; }
-.desk-hit:focus-visible .tag-bg, .desk-hit:hover .tag-bg { stroke: var(--cyan); stroke-width: 2.5; }
-.tag-bg { fill: #f3f5ff; stroke: rgba(255,255,255,.6); stroke-width: 1.5; }
+.tag-bg { filter: drop-shadow(0 0 8px currentColor); }
+.desk-hit:hover .tag-bg, .desk-hit:focus-visible .tag-bg { stroke-width: 6; }
+.tag.late .tag-bg { animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { stroke-opacity: .25; } }
 .tag-name { font: 600 17px "Prompt", sans-serif; fill: #1b2350; }
 .tag-status { font: 13px "Sarabun", sans-serif; fill: #4a5585; }
 .board-text { font: 600 14px "Prompt", sans-serif; fill: #eaf6ff; }
@@ -217,8 +219,7 @@ h1 { font-size: 18px; margin: 0; font-weight: 600; }
   .summary { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .stat b { font-size: 19px; }
   .room-wrap { padding: 2px; }
-  .room-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
-  #room { width: 640px; max-width: none; }
+  #room { max-height: none; }
   .sheet { width: 100vw; max-width: 100vw; margin: auto 0 0; border-radius: 18px 18px 0 0; max-height: 92vh; }
   .seg button { font-size: 12px; }
 }
