@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ห้องคุมงานรายงาน</title>
+<meta name="description" content="ห้องคุมงานรายงานประจำเดือน สำนักงานพัฒนาชุมชนอำเภอ">
+<meta name="theme-color" content="#0a1230">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 2 3 7v10l9 5 9-5V7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M3 7l9 5 9-5M12 12v10" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+    </div>
+    <div>
+      <h1 id="officeTitle">ห้องคุมงาน สพอ.</h1>
+      <p class="sub" id="officeSub">ติดตามรายงานประจำเดือน</p>
+    </div>
+  </div>
+  <div class="month">
+    <button class="icon-btn" id="prevMonth" aria-label="เดือนก่อน">‹</button>
+    <div class="month-label" id="monthLabel"></div>
+    <button class="icon-btn" id="nextMonth" aria-label="เดือนถัดไป">›</button>
+  </div>
+</header>
+
+<section class="summary" id="summary" aria-label="สรุปภาพรวม"></section>
+
+<main class="layout">
+  <section class="room-wrap" aria-label="ห้องทำงาน">
+    <div class="room-scroll" id="roomScroll">
+      <svg id="room" viewBox="70 0 860 600" role="img" aria-label="แผนผังห้องทำงานและสถานะเจ้าหน้าที่"></svg>
+    </div>
+    <p class="hint">แตะที่ป้ายชื่อหรือโต๊ะ เพื่อดูและอัปเดตรายงาน<span class="phone-only"> · เลื่อนซ้าย-ขวาเพื่อดูทั้งห้อง</span></p>
+  </section>
+
+  <aside class="side">
+    <h2>สถานะเจ้าหน้าที่</h2>
+    <div id="staffList" class="staff-list"></div>
+
+    <h2>ใกล้ครบกำหนด / ค้างส่ง</h2>
+    <div id="dueList" class="due-list"></div>
+
+    <h2>บันทึกล่าสุด</h2>
+    <ol id="logList" class="log-list"></ol>
+
+    <div class="tools">
+      <button class="btn ghost" id="settingsBtn">ตั้งค่า</button>
+      <button class="btn ghost" id="exportBtn">สำรองข้อมูล</button>
+      <label class="btn ghost file">นำเข้าข้อมูล<input type="file" id="importFile" accept="application/json,.json" hidden></label>
+    </div>
+  </aside>
+</main>
+
+<dialog id="sheet" class="sheet">
+  <form method="dialog" class="sheet-inner" id="sheetForm"></form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
