@@ -93,7 +93,7 @@
     const months = {};
     return {
       version: 1,
-      office: { title: "ห้องคุมงาน สพอ.", sub: "สำนักงานพัฒนาชุมชนอำเภอ · รายงานประจำเดือน" },
+      office: { title: "ห้องคุมงาน สพอ.โนนสัง", sub: "สำนักงานพัฒนาชุมชนอำเภอโนนสัง · รายงานประจำเดือน" },
       staff, reports, months, log: [], focusV: 2, namesV: 2, cleanV: 1,
     };
   }
@@ -165,6 +165,9 @@
   let state = migrate(load());
   state.log = state.log || [];
   state.office = state.office || { title: "ห้องคุมงาน สพอ.", sub: "" };
+  // ใส่ชื่ออำเภอโนนสัง ถ้ายังเป็นชื่อกลางเดิม
+  if (state.office.title === "ห้องคุมงาน สพอ.") state.office.title = "ห้องคุมงาน สพอ.โนนสัง";
+  if (!state.office.sub || state.office.sub.startsWith("สำนักงานพัฒนาชุมชนอำเภอ ·")) state.office.sub = "สำนักงานพัฒนาชุมชนอำเภอโนนสัง · รายงานประจำเดือน";
   let viewDate = new Date();
   viewDate.setDate(1);
 
@@ -755,10 +758,10 @@
 
     $("#rvPaper").innerHTML = `
       <header class="p-head">
-        <div class="p-kicker">${esc(((state.office.sub || "").split("·")[0].trim()) || "สำนักงานพัฒนาชุมชนอำเภอ")}</div>
+        <div class="p-kicker">${esc(((state.office.sub || "").split("·")[0].trim()) || "สำนักงานพัฒนาชุมชนอำเภอโนนสัง")}</div>
         <h1>สรุปผลการติดตามรายงานประจำเดือน ${monthTxt}</h1>
         <div class="p-meta">ปีงบประมาณ พ.ศ. ${fy} · ข้อมูล ณ วันที่ ${thDateFull(new Date())}</div>
-        <div class="p-to"><b>เรียน</b> พัฒนาการจังหวัด</div>
+        <div class="p-to"><b>เรียน</b> พัฒนาการจังหวัดหนองบัวลำภู</div>
       </header>
 
       <section>
@@ -822,9 +825,9 @@
     const d = reportData(), meta = reportExtra();
     const monthTxt = `${TH_MONTHS[viewDate.getMonth()]} ${viewDate.getFullYear() + 543}`;
     const L = [];
-    L.push(`เรียน พัฒนาการจังหวัด`);
+    L.push(`เรียน พัฒนาการจังหวัดหนองบัวลำภู`);
     L.push(`สรุปผลการติดตามรายงานประจำเดือน ${monthTxt}`);
-    L.push(((state.office.sub || "").split("·")[0].trim()) || "สำนักงานพัฒนาชุมชนอำเภอ");
+    L.push(((state.office.sub || "").split("·")[0].trim()) || "สำนักงานพัฒนาชุมชนอำเภอโนนสัง");
     L.push(``);
     L.push(`1) ภาพรวม: รายงาน ${d.all.length} เรื่อง ส่งแล้ว ${d.done} เรื่อง (ร้อยละ ${d.pct}) ตรวจสอบแล้ว ${d.ok} เรื่อง เกินกำหนด ${d.late.length} เรื่อง`);
     L.push(`2) ประเด็นเน้นย้ำ:`);
