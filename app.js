@@ -26,6 +26,13 @@
     // CDD Focus ปีงบประมาณ 2570 — เริ่มรายงานครั้งแรก พ.ย. 2569
     { k: "f8", no: 0, code: "CDD Focus 2570", title: "ยกระดับการให้บริการ OTOP One Stop Service", owner: 1, ownerName: "นัทสึ", day: 25, start: "2026-11", kind: "oss" },
   ];
+  // งานเฉพาะครั้ง (ไม่ซ้ำทุกเดือน) ที่ได้รับแจ้งจากจังหวัด — once = เดือนที่ต้องทำ
+  const ONE_OFF = [
+    { key: "debt-2026-11", ownerName: "ลีฟ", owner: 3, once: "2026-11", dueDay: 27,
+      title: "ทบทวนรายงานภาวะหนี้สิน (ศูนย์ข้อมูลกลาง)",
+      desc: "ตรวจสอบรายงานภาวะหนี้สินรายหมู่บ้าน · มีแก้ไข → แจ้งจังหวัดโดยด่วน · ไม่มีแก้ไข → เข้าไปยืนยันในระบบ cddfund.cloud ระดับอำเภอ",
+      link: "https://cddfund.cloud" },
+  ];
   // เป้าหมาย OTOP One Stop Service (ตามแบบรายงานของกรมฯ ปี 2570)
   const OSS_TARGET = {
     "2027-01": ["apply", 5], "2027-02": ["apply", 10], "2027-03": ["apply", 15],
@@ -106,6 +113,13 @@
       if (n && !d.staff.some(x => x.name === "นัทสึ")) n.name = "นัทสึ";
       d.namesV = 2;
     }
+    d.oneOff = d.oneOff || [];
+    ONE_OFF.forEach(t => {
+      if (d.oneOff.includes(t.key)) return;
+      const owner = d.staff.find(x => x.name === t.ownerName) || d.staff[t.owner] || d.staff[0];
+      if (owner) d.reports.push({ id: uid(), staffId: owner.id, title: t.title, dueDay: t.dueDay, once: t.once, desc: t.desc, link: t.link });
+      d.oneOff.push(t.key);
+    });
     if (d.focusV >= 2) return d;
     FOCUS.forEach(f => {
       if (d.reports.some(r => r.focus === f.k)) return;
@@ -138,7 +152,7 @@
   }
   function effective(r) { return isLate(r) ? "late" : entry(r).s; }
   // รายงานที่เริ่มทีหลัง (มี start) จะไม่นับในเดือนก่อนหน้า
-  const isActive = r => !r.start || mk() >= r.start;
+  const isActive = r => r.once ? mk() === r.once : (!r.start || mk() >= r.start);
   const liveReports = () => state.reports.filter(r => isActive(r) && state.staff.some(s => s.id === r.staffId));
   const focusActive = f => !f.start || mk() >= f.start;
   const reportsOf = sid => state.reports.filter(r => r.staffId === sid && isActive(r)).sort((a, b) => a.dueDay - b.dueDay);
@@ -847,7 +861,8 @@
           return `<div class="report ${late ? "is-late" : ""}" data-report="${esc(r.id)}">
             <div class="report-top">
               <div><div class="report-title">${r.focus ? `<span class="focus-badge">เน้นย้ำ</span> ` : ""}${esc(r.title)}</div>
-                <div class="report-due">กำหนดส่ง ${fmtDue(r)} (ทุกวันที่ ${r.dueDay})${late ? ` · <span style="color:var(--s-late)">${esc(dueText(r))}</span>` : dueText(r) ? ` · ${esc(dueText(r))}` : ""}</div></div>
+                ${r.desc ? `<div class="report-desc">${esc(r.desc)}${r.link ? ` · <a href="${esc(r.link)}" target="_blank" rel="noopener">เปิดระบบ</a>` : ""}</div>` : ""}
+                <div class="report-due">กำหนดส่ง ${fmtDue(r)} ${r.once ? "(งานเฉพาะครั้ง)" : `(ทุกวันที่ ${r.dueDay})`}${late ? ` · <span style="color:var(--s-late)">${esc(dueText(r))}</span>` : dueText(r) ? ` · ${esc(dueText(r))}` : ""}</div></div>
               <button type="button" class="mini-del" data-del="${esc(r.id)}" aria-label="ลบรายงาน ${esc(r.title)}">×</button>
             </div>
             <div class="seg" role="group" aria-label="สถานะ">
