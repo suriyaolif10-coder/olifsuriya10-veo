@@ -1187,7 +1187,16 @@
   const b64dec = b64 => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\s/g, "")), c => c.charCodeAt(0)));
   const authHeaders = () => adminToken ? { Authorization: `Bearer ${adminToken}` } : {};
 
+  // อ่านไฟล์จาก raw.githubusercontent.com (ไม่ติดโควตา API 60 ครั้ง/ชม. ของผู้ไม่ได้ล็อกอิน)
+  const RAW = `https://raw.githubusercontent.com/${REPO}/${BRANCH}/`;
+  async function fetchRaw(path) {
+    const res = await fetch(`${RAW}${path}?t=${Date.now()}`, { cache: "no-store" });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return { sha: null, data: JSON.parse(await res.text()) };
+  }
   async function fetchRemote() {
+    if (!adminToken) return fetchRaw(DATA_PATH);
     const res = await fetch(`${API}?ref=${encodeURIComponent(BRANCH)}&t=${Date.now()}`, { headers: { Accept: "application/vnd.github+json", ...authHeaders() }, cache: "no-store" });
     if (res.status === 404) return null;
     if (!res.ok) throw new Error("HTTP " + res.status);
@@ -1304,8 +1313,9 @@
     const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64u8(o.iv) }, await pinKey(pin, b64u8(o.salt)), b64u8(o.ct));
     return new TextDecoder().decode(pt);
   }
-  async function fetchKeyFile() {
-    const res = await fetch(`${KEY_API}?ref=${encodeURIComponent(BRANCH)}&t=${Date.now()}`, { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" });
+  async function fetchKeyFile(withSha) {
+    if (!withSha) return fetchRaw("data/key.json");
+    const res = await fetch(`${KEY_API}?ref=${encodeURIComponent(BRANCH)}&t=${Date.now()}`, { headers: { Accept: "application/vnd.github+json", ...authHeaders() }, cache: "no-store" });
     if (res.status === 404) return null;
     if (!res.ok) throw new Error("HTTP " + res.status);
     const j = await res.json();
@@ -1313,14 +1323,16 @@
   }
   async function unlockSync(pin) {
     if (adminToken) return true;
-    try {
-      const k = await fetchKeyFile(); if (!k) return false;
-      adminToken = await openToken(k.data, pin); ls.set(TOKEN_KEY, adminToken);
-      return true;
-    } catch (e) { return false; }
+    let k;
+    try { k = await fetchKeyFile(); } catch (e) { return "neterr"; }
+    if (!k) return false;
+    try { adminToken = await openToken(k.data, pin); ls.set(TOKEN_KEY, adminToken); return true; }
+    catch (e) { return "badkey"; }
   }
+  // รับเลขไทย/ช่องว่าง เช่น ๓๙๑๔๐
+  const normPin = v => v.replace(/[๐-๙]/g, d => "๐๑๒๓๔๕๖๗๘๙".indexOf(d)).replace(/\s/g, "");
   async function login() {
-    const t = $("#pinIn").value.trim();
+    const t = normPin($("#pinIn").value);
     if (!t) return $("#pinIn").focus();
     let h = "";
     try { h = await sha256("cdd-nonsang:" + t); } catch (e) { return openLogin("เบราว์เซอร์นี้ตรวจรหัสไม่ได้ ลองเปิดด้วย Chrome"); }
@@ -1329,7 +1341,8 @@
     $("#loginBtn").textContent = "กำลังเชื่อมข้อมูล…";
     const synced = await unlockSync(t);
     renderAll();
-    if (!synced) { openSetup(); setSync("local"); return; }
+    if (synced === "neterr") { sheet.close(); setSync("offline"); toast("ปลดล็อกแล้ว แต่ยังเชื่อมข้อมูลกลางไม่ได้ (ตรวจอินเทอร์เน็ต แล้วแตะปุ่มมุมบนขวา)"); return; }
+    if (synced !== true) { openSetup(synced === "badkey" ? "ปลดล็อกแล้ว แต่กุญแจเดิมเปิดด้วยรหัสนี้ไม่ได้ กรุณาตั้งค่าใหม่" : ""); setSync("local"); return; }
     sheet.close(); toast("ปลดล็อกแล้ว แก้ไขได้ ทุกเครื่องจะเห็นข้อมูลเดียวกัน");
     await pull(true);
   }
@@ -1355,14 +1368,15 @@
   async function connectToken() {
     const t = $("#tokenIn").value.trim();
     if (!t) return $("#tokenIn").focus();
-    const pin = pinPlain || ($("#pinSetup") ? $("#pinSetup").value.trim() : "");
+    const pin = pinPlain || ($("#pinSetup") ? normPin($("#pinSetup").value) : "");
     if (!pin || await sha256("cdd-nonsang:" + pin) !== PIN_HASH) return openSetup("รหัสผู้ดูแลไม่ถูกต้อง");
     $("#tokenBtn").textContent = "กำลังเชื่อม…";
     try {
       const res = await fetch(`https://api.github.com/repos/${REPO}`, { headers: { Accept: "application/vnd.github+json", Authorization: `Bearer ${t}` }, cache: "no-store" });
       const j = res.ok ? await res.json() : null;
       if (!j || !j.permissions || !j.permissions.push) return openSetup("กุญแจนี้ยังเขียน repo ไม่ได้ ตรวจว่าเลือก olifsuriya10-veo และ Contents: Read and write");
-      const old = await fetchKeyFile().catch(() => null);
+      adminToken = t;
+      const old = await fetchKeyFile(true).catch(() => null);
       const put = await fetch(KEY_API, { method: "PUT", headers: { Accept: "application/vnd.github+json", "Content-Type": "application/json", Authorization: `Bearer ${t}` },
         body: JSON.stringify({ message: "ตั้งค่ากุญแจ (เข้ารหัสด้วยรหัสผู้ดูแล)", content: b64enc(JSON.stringify(await sealToken(t, pin))), branch: BRANCH, ...(old ? { sha: old.sha } : {}) }) });
       if (!put.ok) return openSetup("บันทึกกุญแจไม่สำเร็จ (" + put.status + ") ลองใหม่อีกครั้ง");
@@ -1384,7 +1398,10 @@
   $("#modeChip").onclick = () => {
     if (!canEdit()) return openLogin();
     if (syncState === "denied") { adminToken = null; ls.set(TOKEN_KEY, null); return openSetup("กุญแจเดิมใช้ไม่ได้แล้ว (อาจหมดอายุ) กรุณาสร้างใหม่"); }
-    if (localOnly()) return openSetup();
+    if (localOnly()) {
+      if (pinPlain) { setSync("loading"); return unlockSync(pinPlain).then(r => r === true ? pull(true) : r === "neterr" ? setSync("offline") : openSetup()); }
+      return openLogin();
+    }
     if (syncState === "failed") return pushNow();
     pull();
   };
