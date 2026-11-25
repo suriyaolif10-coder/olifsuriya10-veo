@@ -16,13 +16,6 @@
   const PALETTE = ["#7c6cff", "#34c77b", "#ff5a6e", "#ffb02e", "#3dc6ff", "#ff7ad9", "#9be15d", "#c08bff"];
   // ประเด็นเน้นย้ำของกรมการพัฒนาชุมชน (แก้ไข/ปรับชื่อได้ที่นี่)
   const FOCUS = [
-    { k: "f1", no: 1, code: "สกว.", title: "Modern OTOP", owner: 2, day: 20, match: "รายงาน OTOP / ผู้ประกอบการ" },
-    { k: "f2", no: 2, code: "กทบ.", title: "หมู่บ้านกองทุนแม่ของแผ่นดินปลอดภัยจากยาเสพติด", owner: 0, day: 10 },
-    { k: "f3", no: 3, code: "สสช.", title: "การพัฒนาหมู่บ้านเศรษฐกิจพอเพียง", owner: 3, day: 15, match: "รายงานหมู่บ้านเศรษฐกิจพอเพียง" },
-    { k: "f4", no: 4, code: "ศสท.", title: "การขับเคลื่อนสารสนเทศเพื่อการพัฒนาชุมชน", owner: 1, day: 10 },
-    { k: "f5", no: 5, code: "สกส.", title: "ยกระดับการบริหารจัดการกองทุนพัฒนาบทบาทสตรี", owner: 1, day: 15, match: "รายงานกองทุนพัฒนาบทบาทสตรี" },
-    { k: "f6", no: 0, code: "นวัตกรรม", title: "CDD Creativity 2026 นวัตกรรมการพัฒนาชุมชน", owner: 3, day: 25 },
-    { k: "f7", no: 0, code: "งบประมาณ", title: "ผลการใช้จ่ายงบประมาณ", owner: 2, day: 25, match: "รายงานผลการเบิกจ่ายงบประมาณ" },
     // CDD Focus ปีงบประมาณ 2570 — เริ่มรายงานครั้งแรก พ.ย. 2569
     { k: "f8", no: 0, code: "CDD Focus 2570", title: "ยกระดับการให้บริการ OTOP One Stop Service", owner: 1, ownerName: "นัทสึ", day: 25, start: "2026-11", kind: "oss" },
   ];
@@ -95,21 +88,13 @@
     ];
     const R = (i, title, dueDay, focus) => ({ id: uid(), staffId: staff[i].id, title, dueDay, ...(focus ? { focus } : {}) });
     const F = k => { const f = FOCUS.find(x => x.k === k); return { ...R(f.owner, focusTitle(f), f.day, k), ...(f.start ? { start: f.start } : {}) }; };
-    const reports = [
-      R(0, "รายงานผลการดำเนินงานประจำเดือน", 5), R(0, "รายงาน กข.คจ.", 10), F("f2"),
-      R(1, "รายงานกลุ่มออมทรัพย์เพื่อการผลิต", 10), F("f4"), F("f5"), F("f8"),
-      F("f1"), F("f7"),
-      F("f3"), F("f6"), R(3, "รายงานสรุปหนังสือรับ-ส่ง", 28),
-    ];
-    // ตัวอย่างสถานะ/ระดับของเดือนปัจจุบัน ให้เห็นภาพการใช้งาน
-    const demo = [["ok"], ["sent"], ["ok", "A"], ["ok"], ["sent", "B"], ["doing", "C"], ["none"], ["doing", "B"], ["none"], ["doing", "D"], ["none"], ["none"]];
-    const mk = monthKey(new Date());
-    const months = { [mk]: {} };
-    reports.forEach((r, i) => { months[mk][r.id] = { s: demo[i][0], level: demo[i][1] || "", note: "", t: Date.now() }; });
+    // เริ่มต้นเฉพาะงานที่ได้รับแจ้งจริง (งานเฉพาะครั้งเพิ่มใน migrate จาก ONE_OFF)
+    const reports = FOCUS.map(f => F(f.k));
+    const months = {};
     return {
       version: 1,
       office: { title: "ห้องคุมงาน สพอ.", sub: "สำนักงานพัฒนาชุมชนอำเภอ · รายงานประจำเดือน" },
-      staff, reports, months, log: [], focusV: 2, namesV: 2,
+      staff, reports, months, log: [], focusV: 2, namesV: 2, cleanV: 1,
     };
   }
 
@@ -152,6 +137,19 @@
       if (owner) d.reports.push({ id: uid(), staffId: owner.id, title: t.title, dueDay: t.dueDay, once: t.once, desc: t.desc, link: t.link, ...(t.fields ? { fields: t.fields } : {}) });
       d.oneOff.push(t.key);
     });
+    // ล้างรายงานชุดเก่า/ตัวอย่างออกทั้งหมด เหลือเฉพาะงานที่ได้รับแจ้งจริง (25 พ.ย. 69)
+    if (!d.cleanV) {
+      const keep = r => FOCUS.some(f => f.k === r.focus) || (r.once && ONE_OFF.some(t => t.title === r.title));
+      d.reports = d.reports.filter(keep);
+      const ids = new Set(d.reports.map(r => r.id));
+      Object.keys(d.months).forEach(m => {
+        Object.keys(d.months[m]).forEach(id => { if (!ids.has(id)) delete d.months[m][id]; });
+        if (!Object.keys(d.months[m]).length) delete d.months[m];
+      });
+      d.log = [];
+      d.focusV = 0;
+      d.cleanV = 1;
+    }
     if (d.focusV >= 2) return d;
     FOCUS.forEach(f => {
       if (d.reports.some(r => r.focus === f.k)) return;
