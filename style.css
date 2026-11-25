@@ -410,3 +410,21 @@ body.rv-open { background: #eef3f8; color-scheme: light; }
 
 .report-desc { font-size: 12.5px; color: var(--text); opacity: .85; margin: 2px 0; }
 .report-desc a { color: var(--cyan); }
+
+/* ---------- โหมดผู้ดูแล / ดูอย่างเดียว ---------- */
+.mode-chip { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; margin-left: 6px; padding: 5px 10px; border-radius: 10px; border: 1px solid var(--line, #2a3566); background: rgba(255,255,255,.04); color: inherit; font: 12px/1.25 "Sarabun", sans-serif; cursor: pointer; white-space: nowrap; }
+.mode-chip b { font: 600 12px/1.2 "Prompt", sans-serif; }
+.mode-chip span { opacity: .75; font-size: 11px; }
+.mode-chip.admin b { color: #37d67a; }
+.mode-chip.view b { color: #3dc6ff; }
+.mode-chip.s-failed span, .mode-chip.s-denied span { color: #ff4d6a; opacity: 1; }
+.mode-chip.s-saving span, .mode-chip.s-pending span { color: #ffb43d; opacity: 1; }
+body.viewer #settingsBtn, body.viewer .tools label.file, body.viewer .mini-del,
+body.viewer #sheetForm .field:has(#addReport), body.viewer #sheetForm details { display: none !important; }
+body.viewer .seg button:not([aria-pressed="true"]), body.viewer .lvl-seg button:not([aria-pressed="true"]) { opacity: .35; }
+body.viewer .seg, body.viewer .lvl-seg { pointer-events: none; }
+body.viewer input:disabled, body.viewer select:disabled, body.viewer textarea:disabled { opacity: .85; cursor: default; }
+.login-err { color: #ff4d6a; font-size: 14px; margin: 0; }
+.login-steps { margin: 6px 0 0; padding-left: 20px; line-height: 1.6; }
+.login-steps a { color: #3dc6ff; }
+@media (max-width: 640px) { .mode-chip { margin: 4px 0 0; } }

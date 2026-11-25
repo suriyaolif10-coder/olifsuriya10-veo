@@ -17,11 +17,11 @@
   // ประเด็นเน้นย้ำของกรมการพัฒนาชุมชน (แก้ไข/ปรับชื่อได้ที่นี่)
   const FOCUS = [
     // CDD Focus ปีงบประมาณ 2570 — เริ่มรายงานครั้งแรก พ.ย. 2569
-    { k: "f8", no: 0, code: "CDD Focus 2570", title: "ยกระดับการให้บริการ OTOP One Stop Service", owner: 1, ownerName: "นัทสึ", day: 25, start: "2026-11", kind: "oss" },
+    { k: "f8", no: 0, code: "CDD Focus 2570", title: "ยกระดับการให้บริการ OTOP One Stop Service", owner: 3, ownerName: "นัทสึ", day: 25, start: "2026-11", kind: "oss" },
   ];
   // งานเฉพาะครั้ง (ไม่ซ้ำทุกเดือน) ที่ได้รับแจ้งจากจังหวัด — once = เดือนที่ต้องทำ
   const ONE_OFF = [
-    { key: "debt-2026-11", ownerName: "ลีฟ", owner: 3, once: "2026-11", dueDay: 27,
+    { key: "debt-2026-11", ownerName: "ลีฟ", owner: 1, once: "2026-11", dueDay: 27,
       title: "ทบทวนรายงานภาวะหนี้สิน (ศูนย์ข้อมูลกลาง)",
       desc: "ตรวจสอบรายงานภาวะหนี้สินรายหมู่บ้าน · มีแก้ไข → แจ้งจังหวัดโดยด่วน · ไม่มีแก้ไข → เข้าไปยืนยันในระบบ cddfund.cloud ระดับอำเภอ",
       link: "https://cddfund.cloud" },
@@ -82,9 +82,9 @@
   function seed() {
     const staff = [
       { id: uid(), name: "พลอย", color: PALETTE[0] },
-      { id: uid(), name: "นัทสึ", color: PALETTE[1] },
+      { id: uid(), name: "ลีฟ", color: PALETTE[1] },
       { id: uid(), name: "พราว", color: PALETTE[2] },
-      { id: uid(), name: "ลีฟ", color: PALETTE[3] },
+      { id: uid(), name: "นัทสึ", color: PALETTE[3] },
     ];
     const R = (i, title, dueDay, focus) => ({ id: uid(), staffId: staff[i].id, title, dueDay, ...(focus ? { focus } : {}) });
     const F = k => { const f = FOCUS.find(x => x.k === k); return { ...R(f.owner, focusTitle(f), f.day, k), ...(f.start ? { start: f.start } : {}) }; };
@@ -94,7 +94,7 @@
     return {
       version: 1,
       office: { title: "ห้องคุมงาน สพอ.โนนสัง", sub: "สำนักงานพัฒนาชุมชนอำเภอโนนสัง · รายงานประจำเดือน" },
-      staff, reports, months, log: [], focusV: 2, namesV: 2, cleanV: 1,
+      staff, reports, months, log: [], focusV: 2, namesV: 3, cleanV: 1,
     };
   }
 
@@ -111,9 +111,15 @@
   function valid(d) {
     return d && Array.isArray(d.staff) && Array.isArray(d.reports) && d.months && typeof d.months === "object";
   }
-  function save() {
+  function cacheLocal() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
-    catch (e) { toast("บันทึกในเครื่องไม่ได้ (เบราว์เซอร์ปิดการเก็บข้อมูล)"); }
+    catch (e) { /* เบราว์เซอร์ปิดการเก็บข้อมูล */ }
+  }
+  // บันทึกการแก้ไข: เก็บในเครื่อง แล้วส่งขึ้นข้อมูลกลาง (เฉพาะผู้ดูแล)
+  function save() {
+    if (!canEdit()) return;
+    cacheLocal();
+    queuePush();
   }
 
   // เพิ่มประเด็นเน้นย้ำให้ข้อมูลเดิมที่ยังไม่มี
@@ -129,6 +135,12 @@
       const n = d.staff.find(x => x.name === "นัท");
       if (n && !d.staff.some(x => x.name === "นัทสึ")) n.name = "นัทสึ";
       d.namesV = 2;
+    }
+    if (d.namesV < 3) {
+      // สลับโต๊ะให้ตรงหน้าตา: นัทสึ = ใส่แว่น ไม่มีหนวด (โต๊ะหน้าขวา), ลีฟ = มีหนวด ไม่ใส่แว่น (โต๊ะหลังขวา)
+      const a = d.staff.findIndex(x => x.name === "นัทสึ"), b = d.staff.findIndex(x => x.name === "ลีฟ");
+      if (a === 1 && b === 3) { [d.staff[1], d.staff[3]] = [d.staff[3], d.staff[1]]; }
+      d.namesV = 3;
     }
     d.oneOff = d.oneOff || [];
     ONE_OFF.forEach(t => {
@@ -1020,6 +1032,7 @@
 
   /* ---------------- settings sheet ---------------- */
   function openSettings() {
+    if (!canEdit()) return openLogin();
     openStaffId = null;
     form.innerHTML = `
       <div class="sheet-head"><h3>ตั้งค่าห้องคุมงาน</h3><button class="icon-btn" value="close" aria-label="ปิด">×</button></div>
@@ -1032,7 +1045,8 @@
         </div>
         ${state.staff.length < MAX_STAFF ? `<button type="button" class="btn ghost" id="addStaff" style="justify-self:start">+ เพิ่มเจ้าหน้าที่</button>` : ""}
       </div>
-      <div class="field">ข้อมูลเก็บในเบราว์เซอร์ของเครื่องนี้เท่านั้น ใช้ปุ่ม “สำรองข้อมูล” เพื่อย้ายไปเครื่องอื่น
+      <div class="field">ข้อมูลเก็บไว้ที่ส่วนกลาง (GitHub) ทุกเครื่องที่เปิดลิงก์จะเห็นข้อมูลเดียวกัน แต่แก้ไขได้เฉพาะเครื่องผู้ดูแล
+        ${adminToken ? `<button type="button" class="btn ghost" id="logoutBtn" style="justify-self:start">ออกจากระบบผู้ดูแล (เครื่องนี้)</button>` : ""}
         <button type="button" class="btn danger" id="resetAll" style="justify-self:start">ล้างข้อมูลทั้งหมด (เริ่มใหม่)</button>
       </div>
       <div class="sheet-foot"><span></span><button class="btn" value="close">เสร็จแล้ว</button></div>`;
@@ -1143,11 +1157,166 @@
   $("#settingsBtn").onclick = openSettings;
   $("#exportBtn").onclick = exportData;
 
+  /* ---------------- ข้อมูลกลาง (GitHub) + สิทธิ์แก้ไข ----------------
+     ทุกเครื่องอ่านข้อมูลจาก data/state.json ใน repo เดียวกัน
+     แก้ไขได้เฉพาะผู้ที่ใส่ "กุญแจ" (GitHub token ที่เขียน repo นี้ได้) ไว้ในเครื่อง */
+  const REPO = "suriyaolif10-coder/olifsuriya10-veo";
+  const BRANCH = "claude/project-thread-xcntm6";
+  const DATA_PATH = "data/state.json";
+  const TOKEN_KEY = "cdd-admin-token", DIRTY_KEY = "cdd-dirty";
+  const API = `https://api.github.com/repos/${REPO}/contents/${DATA_PATH}`;
+  const PREVIEW = typeof window.CDD_PREVIEW !== "undefined";
+  const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} } };
+  let adminToken = ls.get(TOKEN_KEY);
+  let remoteSha = null, pushTimer = null, pushing = false, syncState = "loading";
+  function canEdit() { return PREVIEW || !!adminToken; }
+
+  const b64enc = str => { const b = new TextEncoder().encode(str); let out = ""; for (let i = 0; i < b.length; i += 0x8000) out += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(out); };
+  const b64dec = b64 => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\s/g, "")), c => c.charCodeAt(0)));
+  const authHeaders = () => adminToken ? { Authorization: `Bearer ${adminToken}` } : {};
+
+  async function fetchRemote() {
+    const res = await fetch(`${API}?ref=${encodeURIComponent(BRANCH)}&t=${Date.now()}`, { headers: { Accept: "application/vnd.github+json", ...authHeaders() }, cache: "no-store" });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const j = await res.json();
+    return { sha: j.sha, data: JSON.parse(b64dec(j.content)) };
+  }
+  function applyRemote(data) {
+    if (!valid(data)) return false;
+    data.log = data.log || [];
+    state = migrate(data);
+    cacheLocal();
+    if (sheet.open) { if (openStaffId) renderStaffSheet(); }
+    renderAll();
+    if (!$("#reportView").hidden) renderReport();
+    return true;
+  }
+  async function pull(first) {
+    if (PREVIEW) { setSync("preview"); return; }
+    if (pushing || pushTimer) return;
+    try {
+      const r = await fetchRemote();
+      if (adminToken && ls.get(DIRTY_KEY)) { if (r) remoteSha = r.sha; return pushNow(); }
+      if (r) { remoteSha = r.sha; applyRemote(r.data); setSync("ok"); }
+      else if (adminToken) return pushNow(); // ยังไม่มีข้อมูลกลาง → ส่งข้อมูลจากเครื่องผู้ดูแลขึ้นไป
+      else setSync("empty");
+    } catch (e) { setSync(first ? "offline" : syncState); }
+  }
+  function queuePush() {
+    if (PREVIEW) return;
+    ls.set(DIRTY_KEY, "1"); setSync("pending");
+    clearTimeout(pushTimer); pushTimer = setTimeout(() => { pushTimer = null; pushNow(); }, 2500);
+  }
+  async function pushNow(retry) {
+    if (!adminToken || pushing) return;
+    pushing = true; setSync("saving");
+    try {
+      if (!remoteSha) { const r = await fetchRemote().catch(() => null); if (r) remoteSha = r.sha; }
+      const d = new Date();
+      const res = await fetch(API, { method: "PUT", headers: { Accept: "application/vnd.github+json", "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ message: `อัปเดตข้อมูลรายงาน ${d.toLocaleString("th-TH")}`, content: b64enc(JSON.stringify(state)), branch: BRANCH, ...(remoteSha ? { sha: remoteSha } : {}) }) });
+      if ((res.status === 409 || res.status === 422) && !retry) { remoteSha = null; pushing = false; return pushNow(true); }
+      if (res.status === 401 || res.status === 403) { pushing = false; setSync("denied"); return; }
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      remoteSha = (await res.json()).content.sha;
+      ls.set(DIRTY_KEY, null); setSync("ok");
+    } catch (e) { setSync("failed"); }
+    pushing = false;
+  }
+  const SYNC_TEXT = {
+    loading: "กำลังโหลดข้อมูล…", ok: "ข้อมูลล่าสุด", empty: "ยังไม่มีข้อมูลกลาง", offline: "ออฟไลน์ (ข้อมูลในเครื่อง)",
+    pending: "มีการแก้ไข…", saving: "กำลังบันทึกขึ้นระบบ…", failed: "บันทึกขึ้นระบบไม่สำเร็จ แตะเพื่อลองใหม่", denied: "กุญแจใช้ไม่ได้ แตะเพื่อใส่ใหม่", preview: "หน้าตัวอย่าง",
+  };
+  function setSync(k) {
+    syncState = k;
+    document.body.classList.toggle("viewer", !canEdit());
+    const chip = $("#modeChip"); if (!chip) return;
+    chip.className = `mode-chip ${canEdit() ? "admin" : "view"} s-${k}`;
+    chip.innerHTML = `<b>${canEdit() ? "ผู้ดูแล" : "ดูอย่างเดียว"}</b><span>${SYNC_TEXT[k] || ""}</span>`;
+    $(".room-wrap .hint").textContent = canEdit()
+      ? "แตะที่ป้ายชื่อหรือโต๊ะ เพื่อดูและอัปเดตรายงาน · แตะพัฒนาการอำเภอเพื่อตั้งค่า"
+      : "แตะที่ป้ายชื่อหรือโต๊ะ เพื่อดูรายงาน · โหมดดูอย่างเดียว (แก้ไขได้เฉพาะพัฒนาการอำเภอ)";
+  }
+
+  // ล็อกช่องกรอกทุกช่องในโหมดดูอย่างเดียว
+  function lockInputs() {
+    if (canEdit()) return;
+    document.querySelectorAll("#sheetForm input, #sheetForm select, #sheetForm textarea, #focus select, #focus input, #rvPaper input, #rvPaper select, #rvPaper textarea")
+      .forEach(el => { if (!el.disabled && el.id !== "tokenIn") el.disabled = true; });
+  }
+  new MutationObserver(lockInputs).observe(document.body, { childList: true, subtree: true });
+  const EDIT_CLICK = "[data-set],[data-level],[data-del],#addReport,[data-color],[data-sdel],#addStaff,#resetAll";
+  document.addEventListener("click", e => {
+    if (canEdit()) return;
+    if (e.target.closest(EDIT_CLICK)) { e.stopImmediatePropagation(); e.preventDefault(); toast("โหมดดูอย่างเดียว แก้ไขได้เฉพาะพัฒนาการอำเภอ"); }
+  }, true);
+  document.addEventListener("change", e => {
+    if (canEdit()) return;
+    if (e.target.id === "tokenIn") return;
+    if (e.target.closest("#sheetForm,#focus,#rvPaper") || e.target.id === "importFile") { e.stopImmediatePropagation(); e.target.value = ""; }
+  }, true);
+
+  /* ---------------- เข้าสู่ระบบผู้ดูแล ---------------- */
+  function openLogin(msg) {
+    openStaffId = null;
+    form.innerHTML = `
+      <div class="sheet-head"><h3>เข้าสู่ระบบผู้ดูแล</h3><button class="icon-btn" value="close" aria-label="ปิด">×</button></div>
+      <p class="small">หน้านี้ทุกคนเปิดดูได้ แต่แก้ไขได้เฉพาะเครื่องที่ใส่ “กุญแจ” ไว้ (GitHub token ที่เขียน repo นี้ได้) ใส่ครั้งเดียว เครื่องนี้จะจำไว้</p>
+      ${msg ? `<p class="login-err">${esc(msg)}</p>` : ""}
+      <label class="field">กุญแจ (GitHub token)<input id="tokenIn" type="password" autocomplete="off" placeholder="github_pat_…"></label>
+      <details class="small"><summary style="cursor:pointer">วิธีสร้างกุญแจ</summary>
+        <ol class="login-steps">
+          <li>เปิด <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a></li>
+          <li>ตั้งชื่อ เช่น “ห้องคุมงาน” และวันหมดอายุ (เลือกนานได้ เช่น 1 ปี)</li>
+          <li>Repository access: เลือก Only select repositories → olifsuriya10-veo</li>
+          <li>Permissions → Repository permissions → Contents: Read and write</li>
+          <li>กด Generate token แล้วคัดลอกมาวางที่ช่องด้านบน</li>
+        </ol>
+      </details>
+      <div class="sheet-foot"><span></span><button type="button" class="btn" id="loginBtn">เข้าสู่ระบบ</button></div>`;
+    if (!sheet.open) sheet.showModal();
+  }
+  async function login() {
+    const t = $("#tokenIn").value.trim();
+    if (!t) return $("#tokenIn").focus();
+    $("#loginBtn").textContent = "กำลังตรวจสอบ…";
+    try {
+      const res = await fetch(`https://api.github.com/repos/${REPO}`, { headers: { Accept: "application/vnd.github+json", Authorization: `Bearer ${t}` }, cache: "no-store" });
+      const j = res.ok ? await res.json() : null;
+      if (!j || !j.permissions || !j.permissions.push) return openLogin("กุญแจนี้ไม่มีสิทธิ์แก้ไข repo นี้ ตรวจสอบว่าเลือก repo olifsuriya10-veo และ Contents: Read and write");
+      adminToken = t; ls.set(TOKEN_KEY, t);
+      sheet.close(); setSync("loading"); renderAll(); toast("เข้าสู่ระบบผู้ดูแลแล้ว");
+      await pull(true);
+    } catch (e) { openLogin("เชื่อมต่อ GitHub ไม่ได้ ลองใหม่อีกครั้ง"); }
+  }
+  function logout() {
+    adminToken = null; ls.set(TOKEN_KEY, null); ls.set(DIRTY_KEY, null);
+    sheet.close(); setSync(syncState === "ok" ? "ok" : "loading"); renderAll(); pull(true); toast("ออกจากระบบผู้ดูแลแล้ว");
+  }
+  form.addEventListener("click", e => {
+    if (e.target.id === "loginBtn") { e.preventDefault(); login(); }
+    if (e.target.id === "logoutBtn") { e.preventDefault(); logout(); }
+  });
+  form.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "tokenIn") { e.preventDefault(); login(); } });
+  $("#modeChip").onclick = () => {
+    if (!canEdit() || syncState === "denied") return openLogin(syncState === "denied" ? "กุญแจเดิมใช้ไม่ได้แล้ว (อาจหมดอายุ) กรุณาใส่ใหม่" : "");
+    if (syncState === "failed") return pushNow();
+    pull();
+  };
+  // ผู้ชมดึงข้อมูลใหม่ทุก 2 นาที และทุกครั้งที่กลับมาเปิดหน้า
+  setInterval(() => { if (!document.hidden && !canEdit()) pull(); }, 120000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) pull(); });
+  window.addEventListener("online", () => { ls.get(DIRTY_KEY) && adminToken ? pushNow() : pull(); });
+
   // รีเฟรชสถานะเลยกำหนดเมื่อข้ามวัน
   let lastDay = new Date().getDate();
   setInterval(() => { if (new Date().getDate() !== lastDay) { lastDay = new Date().getDate(); renderAll(); } }, 60000);
 
-  save();
+  cacheLocal();
+  setSync(PREVIEW ? "preview" : "loading");
   renderAll();
   patrol();
+  pull(true);
 })();
