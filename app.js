@@ -23,8 +23,15 @@
     { k: "f5", no: 5, code: "สกส.", title: "ยกระดับการบริหารจัดการกองทุนพัฒนาบทบาทสตรี", owner: 1, day: 15, match: "รายงานกองทุนพัฒนาบทบาทสตรี" },
     { k: "f6", no: 0, code: "นวัตกรรม", title: "CDD Creativity 2026 นวัตกรรมการพัฒนาชุมชน", owner: 3, day: 25 },
     { k: "f7", no: 0, code: "งบประมาณ", title: "ผลการใช้จ่ายงบประมาณ", owner: 2, day: 25, match: "รายงานผลการเบิกจ่ายงบประมาณ" },
+    // CDD Focus ปีงบประมาณ 2570 — เริ่มรายงานครั้งแรก พ.ย. 2569
+    { k: "f8", no: 0, code: "CDD Focus 2570", title: "ยกระดับการให้บริการ OTOP One Stop Service", owner: 1, ownerName: "นัทสึ", day: 25, start: "2026-11", kind: "oss" },
   ];
-  const focusTitle = f => f.no ? `ประเด็นที่ ${f.no} (${f.code}) ${f.title}` : f.title;
+  // เป้าหมาย OTOP One Stop Service (ตามแบบรายงานของกรมฯ ปี 2570)
+  const OSS_TARGET = {
+    "2027-01": ["apply", 5], "2027-02": ["apply", 10], "2027-03": ["apply", 15],
+    "2027-04": ["success", 70], "2027-05": ["success", 75], "2027-06": ["success", 80], "2027-07": ["success", 85], "2027-08": ["success", 90],
+  };
+  const focusTitle = f => f.no ? `ประเด็นที่ ${f.no} (${f.code}) ${f.title}` : f.kind === "oss" ? `${f.code}: ${f.title}` : f.title;
   const LEVELS = ["A", "B", "C", "D"];
   const LEVEL_SCORE = { A: 4, B: 3, C: 2, D: 1 };
   const LEVEL_COLOR = { A: "#37d67a", B: "#3da5ff", C: "#ffb43d", D: "#ff4d6a" };
@@ -43,27 +50,27 @@
   function seed() {
     const staff = [
       { id: uid(), name: "พลอย", color: PALETTE[0] },
-      { id: uid(), name: "นัท", color: PALETTE[1] },
+      { id: uid(), name: "นัทสึ", color: PALETTE[1] },
       { id: uid(), name: "พราว", color: PALETTE[2] },
       { id: uid(), name: "ลีฟ", color: PALETTE[3] },
     ];
     const R = (i, title, dueDay, focus) => ({ id: uid(), staffId: staff[i].id, title, dueDay, ...(focus ? { focus } : {}) });
-    const F = k => { const f = FOCUS.find(x => x.k === k); return R(f.owner, focusTitle(f), f.day, k); };
+    const F = k => { const f = FOCUS.find(x => x.k === k); return { ...R(f.owner, focusTitle(f), f.day, k), ...(f.start ? { start: f.start } : {}) }; };
     const reports = [
       R(0, "รายงานผลการดำเนินงานประจำเดือน", 5), R(0, "รายงาน กข.คจ.", 10), F("f2"),
-      R(1, "รายงานกลุ่มออมทรัพย์เพื่อการผลิต", 10), F("f4"), F("f5"),
+      R(1, "รายงานกลุ่มออมทรัพย์เพื่อการผลิต", 10), F("f4"), F("f5"), F("f8"),
       F("f1"), F("f7"),
       F("f3"), F("f6"), R(3, "รายงานสรุปหนังสือรับ-ส่ง", 28),
     ];
     // ตัวอย่างสถานะ/ระดับของเดือนปัจจุบัน ให้เห็นภาพการใช้งาน
-    const demo = [["ok"], ["sent"], ["ok", "A"], ["ok"], ["sent", "B"], ["doing", "C"], ["doing", "B"], ["none"], ["doing", "D"], ["none"], ["none"]];
+    const demo = [["ok"], ["sent"], ["ok", "A"], ["ok"], ["sent", "B"], ["doing", "C"], ["none"], ["doing", "B"], ["none"], ["doing", "D"], ["none"], ["none"]];
     const mk = monthKey(new Date());
     const months = { [mk]: {} };
     reports.forEach((r, i) => { months[mk][r.id] = { s: demo[i][0], level: demo[i][1] || "", note: "", t: Date.now() }; });
     return {
       version: 1,
       office: { title: "ห้องคุมงาน สพอ.", sub: "สำนักงานพัฒนาชุมชนอำเภอ · รายงานประจำเดือน" },
-      staff, reports, months, log: [], focusV: 1, namesV: 1,
+      staff, reports, months, log: [], focusV: 2, namesV: 2,
     };
   }
 
@@ -93,15 +100,21 @@
       if (d.staff.length === 4 && d.staff.every((x, i) => x.name === oldN[i])) d.staff.forEach((x, i) => { x.name = newN[i]; });
       d.namesV = 1;
     }
-    if (d.focusV) return d;
+    if (d.namesV < 2) {
+      // ผู้รับผิดชอบ OTOP One Stop Service คือ "นัทสึ" (ชื่อเต็มของ นัท)
+      const n = d.staff.find(x => x.name === "นัท");
+      if (n && !d.staff.some(x => x.name === "นัทสึ")) n.name = "นัทสึ";
+      d.namesV = 2;
+    }
+    if (d.focusV >= 2) return d;
     FOCUS.forEach(f => {
       if (d.reports.some(r => r.focus === f.k)) return;
       const old = f.match && d.reports.find(r => !r.focus && r.title === f.match);
       if (old) { old.focus = f.k; old.title = focusTitle(f); return; }
-      const owner = d.staff[f.owner] || d.staff[0];
-      if (owner) d.reports.push({ id: uid(), staffId: owner.id, title: focusTitle(f), dueDay: f.day, focus: f.k });
+      const owner = (f.ownerName && d.staff.find(x => x.name === f.ownerName)) || d.staff[f.owner] || d.staff[0];
+      if (owner) d.reports.push({ id: uid(), staffId: owner.id, title: focusTitle(f), dueDay: f.day, focus: f.k, ...(f.start ? { start: f.start } : {}) });
     });
-    d.focusV = 1;
+    d.focusV = 2;
     return d;
   }
 
@@ -124,7 +137,11 @@
     return (e.s === "none" || e.s === "doing") && startOfDay(new Date()) > dueDate(r);
   }
   function effective(r) { return isLate(r) ? "late" : entry(r).s; }
-  const reportsOf = sid => state.reports.filter(r => r.staffId === sid).sort((a, b) => a.dueDay - b.dueDay);
+  // รายงานที่เริ่มทีหลัง (มี start) จะไม่นับในเดือนก่อนหน้า
+  const isActive = r => !r.start || mk() >= r.start;
+  const liveReports = () => state.reports.filter(r => isActive(r) && state.staff.some(s => s.id === r.staffId));
+  const focusActive = f => !f.start || mk() >= f.start;
+  const reportsOf = sid => state.reports.filter(r => r.staffId === sid && isActive(r)).sort((a, b) => a.dueDay - b.dueDay);
 
   function deskStatus(s) {
     const rs = reportsOf(s.id);
@@ -161,6 +178,24 @@
     state.log.unshift({ t: Date.now(), who: who ? who.name : "", what: r.title, to: s, month: key });
     state.log = state.log.slice(0, 60);
     save();
+  }
+
+  // ข้อมูลตัวเลขของรายงาน OTOP One Stop Service
+  function ossInfo(r, key = mk()) {
+    const v = (((state.months[key] || {})[r.id]) || {}).v || {};
+    const total = +r.total || 0, apply = v.apply === "" || v.apply == null ? null : +v.apply, success = v.success === "" || v.success == null ? null : +v.success;
+    const applyPct = total && apply != null ? apply / total * 100 : null;
+    const successPct = apply && success != null ? success / apply * 100 : null;
+    const tg = OSS_TARGET[key];
+    let target = "ช่วงเตรียมการ/ประชาสัมพันธ์ (ยังไม่มีเป้าตัวเลข)", met = null;
+    if (tg && tg[0] === "apply") { target = `ผู้ยื่นคำร้องสะสม ≥ ร้อยละ ${tg[1]} ของผู้ประกอบการ${total ? ` (${Math.ceil(total * tg[1] / 100)} คน)` : ""}`; met = applyPct == null ? null : applyPct >= tg[1]; }
+    if (tg && tg[0] === "success") { target = `ผลสำเร็จอย่างน้อย 1 ด้าน ≥ ร้อยละ ${tg[1]} ของผู้ยื่นคำร้อง${apply ? ` (${Math.ceil(apply * tg[1] / 100)} คน)` : ""}`; met = successPct == null ? null : successPct >= tg[1]; }
+    return { v, total, apply, success, applyPct, successPct, target, met };
+  }
+  const pctTxt = x => x == null ? "-" : `${x.toFixed(1)}%`;
+  function ossSummary(r) {
+    const o = ossInfo(r);
+    return `ผู้ประกอบการ ${o.total || "-"} คน · ยื่นคำร้อง ${o.apply ?? "-"} คน (${pctTxt(o.applyPct)}) · สำเร็จ ${o.success ?? "-"} คน (${pctTxt(o.successPct)})`;
   }
 
   function setLevel(r, lv) {
@@ -268,11 +303,11 @@
     const { x, y, w, h } = BOARD;
     // ระดับประเด็นเน้นย้ำของเดือนที่ดู
     const counts = { A: 0, B: 0, C: 0, D: 0 };
-    FOCUS.forEach(f => {
-      const r = state.reports.find(q => q.focus === f.k && state.staff.some(s => s.id === q.staffId));
+    FOCUS.filter(focusActive).forEach(f => {
+      const r = liveReports().find(q => q.focus === f.k);
       const l = r && levelOf(r); if (l) counts[l]++;
     });
-    const all = state.reports.filter(r => state.staff.some(s => s.id === r.staffId));
+    const all = liveReports();
     const done = all.filter(r => ["sent", "ok"].includes(effective(r))).length;
     const pct = all.length ? Math.round(done / all.length * 100) : 0;
     const desc = { A: "ดีมาก", B: "ดี", C: "พอใช้", D: "ต้องเร่ง" };
@@ -492,7 +527,7 @@
   }
 
   function renderSummary() {
-    const all = state.reports.filter(r => state.staff.some(s => s.id === r.staffId));
+    const all = liveReports();
     const eff = all.map(effective);
     const done = eff.filter(x => x === "sent" || x === "ok").length;
     const ok = eff.filter(x => x === "ok").length;
@@ -522,8 +557,8 @@
   }
 
   function renderDueList() {
-    const pending = state.reports
-      .filter(r => state.staff.some(s => s.id === r.staffId) && ["none", "doing"].includes(entry(r).s))
+    const pending = liveReports()
+      .filter(r => ["none", "doing"].includes(entry(r).s))
       .sort((a, b) => a.dueDay - b.dueDay).slice(0, 8);
     $("#dueList").innerHTML = pending.length ? pending.map(r => {
       const s = state.staff.find(x => x.id === r.staffId);
@@ -549,8 +584,8 @@
   function renderFocus() {
     const { fy, list } = fiscalMonths();
     const curKey = mk();
-    const rows = FOCUS.map(f => {
-      const r = state.reports.find(x => x.focus === f.k && state.staff.some(s => s.id === x.staffId));
+    const rows = FOCUS.filter(focusActive).map(f => {
+      const r = liveReports().find(x => x.focus === f.k);
       return { f, r, lv: r ? levelOf(r) : "", eff: r ? effective(r) : "none" };
     });
     const counts = { A: 0, B: 0, C: 0, D: 0, "": 0 };
@@ -574,6 +609,7 @@
           <select data-focus-owner="${f.k}" aria-label="ผู้รับผิดชอบ ${esc(f.title)}">${staffOpts(owner && owner.id)}</select>
           ${r ? `<span class="${pillClass(eff)}">${esc(eff === "late" ? dueText(r) : STATUS_LABEL[eff])}</span>` : ""}
         </div>
+        ${f.kind === "oss" && r ? `<div class="small oss-card">${esc(ossSummary(r))}</div>` : ""}
         <div class="strip" aria-label="ระดับรายเดือน ปีงบประมาณ ${fy}">${strip}</div>
       </article>`;
     }).join("");
@@ -613,14 +649,14 @@
   }
 
   function reportData() {
-    const all = state.reports.filter(r => state.staff.some(s => s.id === r.staffId));
+    const all = liveReports();
     const eff = all.map(effective);
     const done = eff.filter(x => x === "sent" || x === "ok").length;
     const ok = eff.filter(x => x === "ok").length;
     const late = all.filter(r => effective(r) === "late");
     const pct = all.length ? Math.round(done / all.length * 100) : 0;
-    const focus = FOCUS.map(f => {
-      const r = state.reports.find(x => x.focus === f.k && state.staff.some(s => s.id === x.staffId));
+    const focus = FOCUS.filter(focusActive).map(f => {
+      const r = liveReports().find(x => x.focus === f.k);
       return { f, r, owner: r && state.staff.find(s => s.id === r.staffId), lv: r ? levelOf(r) : "", eff: r ? effective(r) : "" };
     });
     return { all, done, ok, late, pct, focus };
@@ -653,7 +689,7 @@
 
     const focusRows = d.focus.map((x, i) => `<tr>
       <td class="c">${i + 1}</td>
-      <td><b>${x.f.no ? `ประเด็นที่ ${x.f.no} (${esc(x.f.code)})` : esc(x.f.code)}</b><br><span class="muted">${esc(x.f.title)}</span></td>
+      <td><b>${x.f.no ? `ประเด็นที่ ${x.f.no} (${esc(x.f.code)})` : esc(x.f.code)}</b><br><span class="muted">${esc(x.f.title)}</span>${x.f.kind === "oss" && x.r ? `<br><span class="muted">${esc(ossSummary(x.r))}</span>` : ""}</td>
       <td>${x.owner ? esc(x.owner.name) : '<span class="muted">ยังไม่มอบหมาย</span>'}</td>
       <td>${x.r ? stChip(x.eff) : "-"}</td>
       <td class="c">${lvChip(x.lv)}</td>
@@ -748,7 +784,10 @@
     L.push(``);
     L.push(`1) ภาพรวม: รายงาน ${d.all.length} เรื่อง ส่งแล้ว ${d.done} เรื่อง (ร้อยละ ${d.pct}) ตรวจสอบแล้ว ${d.ok} เรื่อง เกินกำหนด ${d.late.length} เรื่อง`);
     L.push(`2) ประเด็นเน้นย้ำ:`);
-    d.focus.forEach(x => L.push(`  - ${x.f.no ? `ประเด็นที่ ${x.f.no} (${x.f.code})` : x.f.code} ${x.f.title}: ระดับ ${x.lv || "-"}${x.owner ? ` (${x.owner.name})` : ""}`));
+    d.focus.forEach(x => {
+      L.push(`  - ${x.f.no ? `ประเด็นที่ ${x.f.no} (${x.f.code})` : x.f.code} ${x.f.title}: ระดับ ${x.lv || "-"}${x.owner ? ` (${x.owner.name})` : ""}`);
+      if (x.f.kind === "oss" && x.r) L.push(`      ${ossSummary(x.r)}`);
+    });
     if (meta.budget) L.push(`  - ผลการเบิกจ่ายงบประมาณสะสม ร้อยละ ${meta.budget}`);
     L.push(`3) รายบุคคล:`);
     state.staff.forEach(s => { const st = deskStatus(s); L.push(`  - ${s.name}: ส่ง ${st.done}/${st.total} · ${st.text}`); });
@@ -817,6 +856,14 @@
             ${r.focus ? `<div class="lvl-row"><span class="small">ระดับผลการดำเนินงานเดือนนี้</span><div class="lvl-seg" role="group" aria-label="ระดับ">
               ${LEVELS.map(l => `<button type="button" data-level="${l}" style="--lc:${LEVEL_COLOR[l]}" aria-pressed="${e.level === l}">${l}</button>`).join("")}
             </div></div>` : ""}
+            ${(FOCUS.find(f => f.k === r.focus) || {}).kind === "oss" ? (() => { const o = ossInfo(r); return `<div class="oss">
+              <div class="oss-target">เป้าหมายเดือนนี้: ${esc(o.target)}${o.met === true ? ' <b class="ok">✓ ผ่าน</b>' : o.met === false ? ' <b class="bad">ยังไม่ถึงเป้า</b>' : ""}</div>
+              <label>ผู้ประกอบการ OTOP ในอำเภอ (คน)<input type="number" min="0" inputmode="numeric" data-rcfg="total" value="${esc(r.total ?? "")}"></label>
+              <label>ผู้ยื่นคำร้องขอรับบริการสะสม (คน)<input type="number" min="0" inputmode="numeric" data-val="apply" value="${esc(o.v.apply ?? "")}"></label>
+              <label>ผลสำเร็จอย่างน้อย 1 ด้าน สะสม (คน)<input type="number" min="0" inputmode="numeric" data-val="success" value="${esc(o.v.success ?? "")}"></label>
+              <label class="wide">ลิงก์หลักฐาน / ไฟล์รายงาน<input type="url" data-val="link" placeholder="https://" value="${esc(o.v.link ?? "")}"></label>
+              <div class="oss-sum">${esc(ossSummary(r))}</div>
+            </div>`; })() : ""}
             <input class="note" data-note="${esc(r.id)}" placeholder="หมายเหตุ (เช่น เลขหนังสือ, สิ่งที่ต้องแก้)" value="${esc(e.note || "")}">
           </div>`;
         }).join("") : `<div class="empty">ยังไม่มีรายงานที่รับผิดชอบ เพิ่มด้านล่างได้เลย</div>`}
@@ -881,6 +928,18 @@
 
   form.addEventListener("change", e => {
     const s = state.staff.find(x => x.id === openStaffId);
+    if (e.target.dataset.rcfg || e.target.dataset.val) {
+      const rid = e.target.closest("[data-report]").dataset.report;
+      const r = state.reports.find(x => x.id === rid);
+      if (e.target.dataset.rcfg) r[e.target.dataset.rcfg] = e.target.value === "" ? "" : e.target.value;
+      else {
+        const key = mk(); state.months[key] = state.months[key] || {};
+        const prev = state.months[key][rid] || { s: "none", note: "" };
+        state.months[key][rid] = { ...prev, v: { ...(prev.v || {}), [e.target.dataset.val]: e.target.value.trim() }, t: Date.now() };
+      }
+      save(); renderStaffSheet(); renderAll(); toast("บันทึกข้อมูลแล้ว");
+      return;
+    }
     if (e.target.dataset.note) {
       const key = mk();
       state.months[key] = state.months[key] || {};
@@ -1008,7 +1067,7 @@
     let r = state.reports.find(x => x.focus === k);
     if (!sid) { if (r) state.reports = state.reports.filter(x => x !== r); }
     else if (r) r.staffId = sid;
-    else state.reports.push({ id: uid(), staffId: sid, title: focusTitle(f), dueDay: f.day, focus: k });
+    else state.reports.push({ id: uid(), staffId: sid, title: focusTitle(f), dueDay: f.day, focus: k, ...(f.start ? { start: f.start } : {}) });
     save(); renderAll(); toast("เปลี่ยนผู้รับผิดชอบแล้ว");
   });
   $("#openReport").onclick = openReport;

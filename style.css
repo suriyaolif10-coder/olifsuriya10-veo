@@ -398,3 +398,12 @@ body.rv-open { background: #eef3f8; color-scheme: light; }
 }
 
 .rv-copybox[hidden], .rv[hidden] { display: none !important; }
+
+/* ---------- OTOP One Stop Service ---------- */
+.oss { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: var(--bg); border: 1px dashed var(--line); border-radius: 10px; padding: 10px; }
+.oss label { display: grid; gap: 3px; font-size: 12.5px; color: var(--muted); }
+.oss label.wide, .oss-target, .oss-sum { grid-column: 1 / -1; }
+.oss input { font: inherit; color: var(--text); background: #0b1538; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; width: 100%; }
+.oss-target { font-size: 13px; color: var(--cyan); }
+.oss-target .ok { color: var(--s-ok); } .oss-target .bad { color: var(--s-late); }
+.oss-sum, .oss-card { font-size: 12.5px; color: var(--muted); }
