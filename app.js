@@ -1172,7 +1172,7 @@
   const DATA_PATH = "data/state.json";
   const TOKEN_KEY = "cdd-admin-token", DIRTY_KEY = "cdd-dirty", PIN_KEY = "cdd-admin-pin";
   // รหัสผู้ดูแล (เก็บเป็นค่าแฮช) — เปลี่ยนรหัสได้โดยแก้ค่านี้
-  const PIN_HASH = "51fc7f723c84d60164ba2b7785899fe0ac781e28fe4f0ab73635ca6489b161a2";
+  const PIN_HASH = "6663f95ff32da06ccaaf5d895f56f2e5ec6eef2e3a278177f75e74d165b74113";
   const API = `https://api.github.com/repos/${REPO}/contents/${DATA_PATH}`;
   const PREVIEW = typeof window.CDD_PREVIEW !== "undefined";
   const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
