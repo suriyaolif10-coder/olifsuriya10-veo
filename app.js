@@ -3,6 +3,7 @@
   "use strict";
 
   const STORE_KEY = "cdd-control-room-v1";
+  const APP_VER = "v25.11-f";
   const MAX_STAFF = 4;
 
   const STATUSES = [
@@ -1289,8 +1290,9 @@
       <p class="small">ทุกคนเปิดดูได้ แต่แก้ไขได้เฉพาะผู้ที่มีรหัส ใส่ครั้งเดียว เครื่องนี้จะจำไว้</p>
       ${msg ? `<p class="login-err">${esc(msg)}</p>` : ""}
       <label class="field">รหัสผู้ดูแล<input id="pinIn" type="password" inputmode="numeric" autocomplete="off"></label>
-      <div class="sheet-foot"><span></span><button type="button" class="btn" id="loginBtn">ปลดล็อก</button></div>`;
+      <div class="sheet-foot"><span class="small" style="opacity:.5">${APP_VER}</span><button type="button" class="btn" id="loginBtn">ปลดล็อก</button></div>`;
     if (!sheet.open) sheet.showModal();
+    $("#loginBtn").onclick = e => { e.preventDefault(); e.stopPropagation(); login(); };
     setTimeout(() => { const i = $("#pinIn"); if (i) i.focus(); }, 50);
   }
   /* กุญแจ GitHub ถูกเข้ารหัสด้วยรหัสผู้ดูแล แล้วเก็บไว้ใน data/key.json
@@ -1332,9 +1334,17 @@
   }
   // รับเลขไทย/ช่องว่าง เช่น ๓๙๑๔๐
   const normPin = v => v.replace(/[๐-๙]/g, d => "๐๑๒๓๔๕๖๗๘๙".indexOf(d)).replace(/\s/g, "");
+  let loggingIn = false;
   async function login() {
+    if (loggingIn) return;
     const t = normPin($("#pinIn").value);
     if (!t) return $("#pinIn").focus();
+    loggingIn = true; $("#loginBtn").textContent = "กำลังตรวจรหัส…"; $("#loginBtn").disabled = true;
+    try { await doLogin(t); }
+    catch (e) { unlocked ? (sheet.close(), renderAll(), setSync("offline"), toast("ปลดล็อกแล้ว (เชื่อมข้อมูลกลางไม่สำเร็จ)")) : openLogin("เกิดข้อผิดพลาด: " + (e && e.message || e)); }
+    finally { loggingIn = false; }
+  }
+  async function doLogin(t) {
     let h = "";
     try { h = await sha256("cdd-nonsang:" + t); } catch (e) { return openLogin("เบราว์เซอร์นี้ตรวจรหัสไม่ได้ ลองเปิดด้วย Chrome"); }
     if (h !== PIN_HASH) return openLogin("รหัสไม่ถูกต้อง");
@@ -1395,7 +1405,13 @@
     if (e.target.id === "tokenBtn") { e.preventDefault(); connectToken(); }
     if (e.target.id === "setupBtn") { e.preventDefault(); openSetup(); }
   });
-  form.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "pinIn") { e.preventDefault(); login(); } });
+  form.addEventListener("keydown", e => { if ((e.key === "Enter" || e.keyCode === 13) && e.target.id === "pinIn") { e.preventDefault(); login(); } });
+  // ปุ่ม Go/ไป บนคีย์บอร์ดมือถือจะ submit ฟอร์ม → ให้เป็นการปลดล็อกแทนการปิดหน้าต่าง
+  form.addEventListener("submit", e => {
+    const id = document.activeElement && document.activeElement.id;
+    if (id === "pinIn") { e.preventDefault(); login(); }
+    else if (id === "tokenIn" || id === "pinSetup") { e.preventDefault(); connectToken(); }
+  });
   $("#modeChip").onclick = () => {
     if (!canEdit()) return openLogin();
     if (syncState === "denied") { adminToken = null; ls.set(TOKEN_KEY, null); return openSetup("กุญแจเดิมใช้ไม่ได้แล้ว (อาจหมดอายุ) กรุณาสร้างใหม่"); }
