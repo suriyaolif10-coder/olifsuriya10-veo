@@ -32,7 +32,39 @@
       title: "ทบทวนรายงานภาวะหนี้สิน (ศูนย์ข้อมูลกลาง)",
       desc: "ตรวจสอบรายงานภาวะหนี้สินรายหมู่บ้าน · มีแก้ไข → แจ้งจังหวัดโดยด่วน · ไม่มีแก้ไข → เข้าไปยืนยันในระบบ cddfund.cloud ระดับอำเภอ",
       link: "https://cddfund.cloud" },
+    { key: "knn-2026-11", ownerName: "พราว", owner: 2, once: "2026-11", dueDay: 30,
+      title: "โคก หนอง นา Next Step: คลิป Story Telling + ประชาสัมพันธ์ศูนย์เรียนรู้เพื่อการท่องเที่ยว",
+      desc: "ประเด็นเน้นย้ำ พ.ย. 69 (1 อำเภอ 1 ศูนย์เรียนรู้ฯ) · ระดับ A = มีคลิป Story Telling 3–5 นาที และเผยแพร่ผ่านสื่อออนไลน์ 3 สื่อขึ้นไป · รายงานในแบบฟอร์มของจังหวัด ภายใน 30 พ.ย. 69",
+      link: "https://docs.google.com/spreadsheets/d/1-O98O-oIrcCbuxNu6Uf4cBLOcNyZJKyRblm2ZJNIdjU/edit?gid=671007010#gid=671007010",
+      fields: "knn" },
   ];
+  // ช่องกรอกของงานแต่ละแบบ
+  const FIELD_SETS = {
+    knn: [
+      { k: "owner", label: "ชื่อเจ้าของศูนย์เรียนรู้ฯ" },
+      { k: "addr", label: "ที่อยู่ศูนย์เรียนรู้ฯ" },
+      { k: "type", label: "ประเภท (เช่น ท่องเที่ยวเชิงเกษตร)" },
+      { k: "mins", label: "ความยาวคลิป (นาที)", type: "number" },
+      { k: "video", label: "ลิงก์วิดีโอ Story Telling", type: "url", wide: true },
+      { k: "pr1", label: "ลิงก์ประชาสัมพันธ์ (1)", type: "url", wide: true },
+      { k: "pr2", label: "ลิงก์ประชาสัมพันธ์ (2)", type: "url", wide: true },
+      { k: "pr3", label: "ลิงก์ประชาสัมพันธ์ (3)", type: "url", wide: true },
+      { k: "other", label: "สื่ออื่นๆ (หนังสือพิมพ์ ข่าวท้องถิ่น จอประชาสัมพันธ์)", wide: true },
+    ],
+  };
+  // ประเมินระดับเบื้องต้นของ โคก หนอง นา จากข้อมูลที่กรอก (เกณฑ์ A ตามหนังสือแจ้ง)
+  function knnCheck(v) {
+    const media = ["pr1", "pr2", "pr3"].filter(k => (v[k] || "").trim()).length + ((v.other || "").trim() ? 1 : 0);
+    const mins = parseFloat(v.mins);
+    const hasVideo = !!(v.video || "").trim();
+    const lenOk = mins >= 3 && mins <= 5;
+    const isA = hasVideo && lenOk && media >= 3;
+    const miss = [];
+    if (!hasVideo) miss.push("ลิงก์วิดีโอ");
+    if (!lenOk) miss.push("คลิปยาว 3–5 นาที");
+    if (media < 3) miss.push(`สื่ออีก ${3 - media} สื่อ`);
+    return { media, isA, text: isA ? "ครบเกณฑ์ระดับ A" : `ยังขาด: ${miss.join(", ")}` };
+  }
   // เป้าหมาย OTOP One Stop Service (ตามแบบรายงานของกรมฯ ปี 2570)
   const OSS_TARGET = {
     "2027-01": ["apply", 5], "2027-02": ["apply", 10], "2027-03": ["apply", 15],
@@ -117,7 +149,7 @@
     ONE_OFF.forEach(t => {
       if (d.oneOff.includes(t.key)) return;
       const owner = d.staff.find(x => x.name === t.ownerName) || d.staff[t.owner] || d.staff[0];
-      if (owner) d.reports.push({ id: uid(), staffId: owner.id, title: t.title, dueDay: t.dueDay, once: t.once, desc: t.desc, link: t.link });
+      if (owner) d.reports.push({ id: uid(), staffId: owner.id, title: t.title, dueDay: t.dueDay, once: t.once, desc: t.desc, link: t.link, ...(t.fields ? { fields: t.fields } : {}) });
       d.oneOff.push(t.key);
     });
     if (d.focusV >= 2) return d;
@@ -861,7 +893,7 @@
           return `<div class="report ${late ? "is-late" : ""}" data-report="${esc(r.id)}">
             <div class="report-top">
               <div><div class="report-title">${r.focus ? `<span class="focus-badge">เน้นย้ำ</span> ` : ""}${esc(r.title)}</div>
-                ${r.desc ? `<div class="report-desc">${esc(r.desc)}${r.link ? ` · <a href="${esc(r.link)}" target="_blank" rel="noopener">เปิดระบบ</a>` : ""}</div>` : ""}
+                ${r.desc ? `<div class="report-desc">${esc(r.desc)}${r.link ? ` · <a href="${esc(r.link)}" target="_blank" rel="noopener">${r.link.includes("docs.google") ? "เปิดแบบรายงาน" : "เปิดระบบ"}</a>` : ""}</div>` : ""}
                 <div class="report-due">กำหนดส่ง ${fmtDue(r)} ${r.once ? "(งานเฉพาะครั้ง)" : `(ทุกวันที่ ${r.dueDay})`}${late ? ` · <span style="color:var(--s-late)">${esc(dueText(r))}</span>` : dueText(r) ? ` · ${esc(dueText(r))}` : ""}</div></div>
               <button type="button" class="mini-del" data-del="${esc(r.id)}" aria-label="ลบรายงาน ${esc(r.title)}">×</button>
             </div>
@@ -878,6 +910,10 @@
               <label>ผลสำเร็จอย่างน้อย 1 ด้าน สะสม (คน)<input type="number" min="0" inputmode="numeric" data-val="success" value="${esc(o.v.success ?? "")}"></label>
               <label class="wide">ลิงก์หลักฐาน / ไฟล์รายงาน<input type="url" data-val="link" placeholder="https://" value="${esc(o.v.link ?? "")}"></label>
               <div class="oss-sum">${esc(ossSummary(r))}</div>
+            </div>`; })() : ""}
+            ${r.fields && FIELD_SETS[r.fields] ? (() => { const v = e.v || {}; const chk = r.fields === "knn" ? knnCheck(v) : null; return `<div class="oss">
+              ${chk ? `<div class="oss-target">${chk.isA ? '<b class="ok">✓ ' + esc(chk.text) + "</b>" : esc(chk.text)} · สื่อที่เผยแพร่ ${chk.media} สื่อ</div>` : ""}
+              ${FIELD_SETS[r.fields].map(f => `<label class="${f.wide ? "wide" : ""}">${esc(f.label)}<input type="${f.type || "text"}" ${f.type === "number" ? 'min="0" step="0.5" inputmode="decimal"' : ""} data-val="${f.k}" value="${esc(v[f.k] ?? "")}" ${f.type === "url" ? 'placeholder="https://"' : ""}></label>`).join("")}
             </div>`; })() : ""}
             <input class="note" data-note="${esc(r.id)}" placeholder="หมายเหตุ (เช่น เลขหนังสือ, สิ่งที่ต้องแก้)" value="${esc(e.note || "")}">
           </div>`;
