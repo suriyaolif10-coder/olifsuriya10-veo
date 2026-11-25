@@ -1045,8 +1045,15 @@
         </div>
         ${state.staff.length < MAX_STAFF ? `<button type="button" class="btn ghost" id="addStaff" style="justify-self:start">+ เพิ่มเจ้าหน้าที่</button>` : ""}
       </div>
-      <div class="field">ข้อมูลเก็บไว้ที่ส่วนกลาง (GitHub) ทุกเครื่องที่เปิดลิงก์จะเห็นข้อมูลเดียวกัน แต่แก้ไขได้เฉพาะเครื่องผู้ดูแล
-        ${adminToken ? `<button type="button" class="btn ghost" id="logoutBtn" style="justify-self:start">ออกจากระบบผู้ดูแล (เครื่องนี้)</button>` : ""}
+      <div class="field">${adminToken ? "ข้อมูลเชื่อมกับส่วนกลาง (GitHub) ทุกเครื่องที่เปิดลิงก์เห็นข้อมูลเดียวกัน" : "ข้อมูลเก็บในเครื่องนี้"}
+        ${unlocked ? `<button type="button" class="btn ghost" id="logoutBtn" style="justify-self:start">ล็อกเครื่องนี้ (กลับเป็นดูอย่างเดียว)</button>` : ""}
+      </div>
+      ${PREVIEW ? "" : `<details class="field"><summary class="small" style="cursor:pointer">ขั้นสูง: ให้ทุกเครื่องเห็นข้อมูลเดียวกัน (ไม่บังคับ)</summary>
+        ${adminToken ? `<p class="small">เชื่อมแล้ว</p><button type="button" class="btn ghost" id="untokenBtn" style="justify-self:start">ยกเลิกการเชื่อม</button>`
+          : `<p class="small">ใส่ GitHub token (Contents: Read and write ของ repo olifsuriya10-veo) แล้วการแก้ไขจะส่งขึ้นส่วนกลาง</p>
+        <div class="row"><input id="tokenIn" type="password" autocomplete="off" placeholder="github_pat_…"><button type="button" class="btn" id="tokenBtn">เชื่อม</button></div>`}
+      </details>`}
+      <div class="field">
         <button type="button" class="btn danger" id="resetAll" style="justify-self:start">ล้างข้อมูลทั้งหมด (เริ่มใหม่)</button>
       </div>
       <div class="sheet-foot"><span></span><button class="btn" value="close">เสร็จแล้ว</button></div>`;
@@ -1163,14 +1170,22 @@
   const REPO = "suriyaolif10-coder/olifsuriya10-veo";
   const BRANCH = "claude/project-thread-xcntm6";
   const DATA_PATH = "data/state.json";
-  const TOKEN_KEY = "cdd-admin-token", DIRTY_KEY = "cdd-dirty";
+  const TOKEN_KEY = "cdd-admin-token", DIRTY_KEY = "cdd-dirty", PIN_KEY = "cdd-admin-pin";
+  // รหัสผู้ดูแล (เก็บเป็นค่าแฮช) — เปลี่ยนรหัสได้โดยแก้ค่านี้
+  const PIN_HASH = "51fc7f723c84d60164ba2b7785899fe0ac781e28fe4f0ab73635ca6489b161a2";
   const API = `https://api.github.com/repos/${REPO}/contents/${DATA_PATH}`;
   const PREVIEW = typeof window.CDD_PREVIEW !== "undefined";
   const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
     set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} } };
   let adminToken = ls.get(TOKEN_KEY);
+  let unlocked = ls.get(PIN_KEY) === PIN_HASH;
   let remoteSha = null, pushTimer = null, pushing = false, syncState = "loading";
-  function canEdit() { return PREVIEW || !!adminToken; }
+  function canEdit() { return PREVIEW || unlocked; }
+  const localOnly = () => unlocked && !adminToken; // ผู้ดูแลที่ไม่ได้เชื่อมข้อมูลกลาง: เก็บในเครื่องนี้
+  async function sha256(t) {
+    const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t));
+    return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("");
+  }
 
   const b64enc = str => { const b = new TextEncoder().encode(str); let out = ""; for (let i = 0; i < b.length; i += 0x8000) out += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(out); };
   const b64dec = b64 => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\s/g, "")), c => c.charCodeAt(0)));
@@ -1195,6 +1210,7 @@
   }
   async function pull(first) {
     if (PREVIEW) { setSync("preview"); return; }
+    if (localOnly()) { setSync("local"); return; }
     if (pushing || pushTimer) return;
     try {
       const r = await fetchRemote();
@@ -1206,6 +1222,7 @@
   }
   function queuePush() {
     if (PREVIEW) return;
+    if (localOnly()) { setSync("local"); return; }
     ls.set(DIRTY_KEY, "1"); setSync("pending");
     clearTimeout(pushTimer); pushTimer = setTimeout(() => { pushTimer = null; pushNow(); }, 2500);
   }
@@ -1226,8 +1243,8 @@
     pushing = false;
   }
   const SYNC_TEXT = {
-    loading: "กำลังโหลดข้อมูล…", ok: "ข้อมูลล่าสุด", empty: "ยังไม่มีข้อมูลกลาง", offline: "ออฟไลน์ (ข้อมูลในเครื่อง)",
-    pending: "มีการแก้ไข…", saving: "กำลังบันทึกขึ้นระบบ…", failed: "บันทึกขึ้นระบบไม่สำเร็จ แตะเพื่อลองใหม่", denied: "กุญแจใช้ไม่ได้ แตะเพื่อใส่ใหม่", preview: "หน้าตัวอย่าง",
+    loading: "กำลังโหลดข้อมูล…", ok: "ข้อมูลล่าสุด", empty: "แตะเพื่อใส่รหัส", offline: "ออฟไลน์ (ข้อมูลในเครื่อง)",
+    pending: "มีการแก้ไข…", saving: "กำลังบันทึกขึ้นระบบ…", failed: "บันทึกขึ้นระบบไม่สำเร็จ แตะเพื่อลองใหม่", denied: "กุญแจใช้ไม่ได้ แตะเพื่อใส่ใหม่", preview: "หน้าตัวอย่าง", local: "บันทึกในเครื่องนี้",
   };
   function setSync(k) {
     syncState = k;
@@ -1244,7 +1261,7 @@
   function lockInputs() {
     if (canEdit()) return;
     document.querySelectorAll("#sheetForm input, #sheetForm select, #sheetForm textarea, #focus select, #focus input, #rvPaper input, #rvPaper select, #rvPaper textarea")
-      .forEach(el => { if (!el.disabled && el.id !== "tokenIn") el.disabled = true; });
+      .forEach(el => { if (!el.disabled && el.id !== "pinIn") el.disabled = true; });
   }
   new MutationObserver(lockInputs).observe(document.body, { childList: true, subtree: true });
   const EDIT_CLICK = "[data-set],[data-level],[data-del],#addReport,[data-color],[data-sdel],#addStaff,#resetAll";
@@ -1254,7 +1271,7 @@
   }, true);
   document.addEventListener("change", e => {
     if (canEdit()) return;
-    if (e.target.id === "tokenIn") return;
+    if (e.target.id === "pinIn") return;
     if (e.target.closest("#sheetForm,#focus,#rvPaper") || e.target.id === "importFile") { e.stopImmediatePropagation(); e.target.value = ""; }
   }, true);
 
@@ -1262,46 +1279,50 @@
   function openLogin(msg) {
     openStaffId = null;
     form.innerHTML = `
-      <div class="sheet-head"><h3>เข้าสู่ระบบผู้ดูแล</h3><button class="icon-btn" value="close" aria-label="ปิด">×</button></div>
-      <p class="small">หน้านี้ทุกคนเปิดดูได้ แต่แก้ไขได้เฉพาะเครื่องที่ใส่ “กุญแจ” ไว้ (GitHub token ที่เขียน repo นี้ได้) ใส่ครั้งเดียว เครื่องนี้จะจำไว้</p>
+      <div class="sheet-head"><h3>ใส่รหัสเพื่อแก้ไข</h3><button class="icon-btn" value="close" aria-label="ปิด">×</button></div>
+      <p class="small">ทุกคนเปิดดูได้ แต่แก้ไขได้เฉพาะผู้ที่มีรหัส ใส่ครั้งเดียว เครื่องนี้จะจำไว้</p>
       ${msg ? `<p class="login-err">${esc(msg)}</p>` : ""}
-      <label class="field">กุญแจ (GitHub token)<input id="tokenIn" type="password" autocomplete="off" placeholder="github_pat_…"></label>
-      <details class="small"><summary style="cursor:pointer">วิธีสร้างกุญแจ</summary>
-        <ol class="login-steps">
-          <li>เปิด <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a></li>
-          <li>ตั้งชื่อ เช่น “ห้องคุมงาน” และวันหมดอายุ (เลือกนานได้ เช่น 1 ปี)</li>
-          <li>Repository access: เลือก Only select repositories → olifsuriya10-veo</li>
-          <li>Permissions → Repository permissions → Contents: Read and write</li>
-          <li>กด Generate token แล้วคัดลอกมาวางที่ช่องด้านบน</li>
-        </ol>
-      </details>
-      <div class="sheet-foot"><span></span><button type="button" class="btn" id="loginBtn">เข้าสู่ระบบ</button></div>`;
+      <label class="field">รหัสผู้ดูแล<input id="pinIn" type="password" inputmode="numeric" autocomplete="off"></label>
+      <div class="sheet-foot"><span></span><button type="button" class="btn" id="loginBtn">ปลดล็อก</button></div>`;
     if (!sheet.open) sheet.showModal();
+    setTimeout(() => { const i = $("#pinIn"); if (i) i.focus(); }, 50);
   }
   async function login() {
+    const t = $("#pinIn").value.trim();
+    if (!t) return $("#pinIn").focus();
+    let h = "";
+    try { h = await sha256("cdd-nonsang:" + t); } catch (e) { return openLogin("เบราว์เซอร์นี้ตรวจรหัสไม่ได้ ลองเปิดด้วย Chrome"); }
+    if (h !== PIN_HASH) return openLogin("รหัสไม่ถูกต้อง");
+    unlocked = true; ls.set(PIN_KEY, h);
+    sheet.close(); renderAll(); toast("ปลดล็อกแล้ว แก้ไขได้");
+    await pull(true);
+  }
+  // (ไม่บังคับ) เชื่อมข้อมูลกลางใน GitHub ให้ทุกเครื่องเห็นข้อมูลเดียวกัน
+  async function connectToken() {
     const t = $("#tokenIn").value.trim();
     if (!t) return $("#tokenIn").focus();
-    $("#loginBtn").textContent = "กำลังตรวจสอบ…";
     try {
       const res = await fetch(`https://api.github.com/repos/${REPO}`, { headers: { Accept: "application/vnd.github+json", Authorization: `Bearer ${t}` }, cache: "no-store" });
       const j = res.ok ? await res.json() : null;
-      if (!j || !j.permissions || !j.permissions.push) return openLogin("กุญแจนี้ไม่มีสิทธิ์แก้ไข repo นี้ ตรวจสอบว่าเลือก repo olifsuriya10-veo และ Contents: Read and write");
-      adminToken = t; ls.set(TOKEN_KEY, t);
-      sheet.close(); setSync("loading"); renderAll(); toast("เข้าสู่ระบบผู้ดูแลแล้ว");
-      await pull(true);
-    } catch (e) { openLogin("เชื่อมต่อ GitHub ไม่ได้ ลองใหม่อีกครั้ง"); }
+      if (!j || !j.permissions || !j.permissions.push) return toast("กุญแจนี้ไม่มีสิทธิ์เขียน repo นี้");
+      adminToken = t; ls.set(TOKEN_KEY, t); ls.set(DIRTY_KEY, "1");
+      sheet.close(); toast("เชื่อมข้อมูลกลางแล้ว"); await pull(true);
+    } catch (e) { toast("เชื่อมต่อ GitHub ไม่ได้"); }
   }
   function logout() {
-    adminToken = null; ls.set(TOKEN_KEY, null); ls.set(DIRTY_KEY, null);
-    sheet.close(); setSync(syncState === "ok" ? "ok" : "loading"); renderAll(); pull(true); toast("ออกจากระบบผู้ดูแลแล้ว");
+    unlocked = false; ls.set(PIN_KEY, null);
+    sheet.close(); renderAll(); pull(true); toast("ล็อกแล้ว (ดูอย่างเดียว)");
   }
   form.addEventListener("click", e => {
     if (e.target.id === "loginBtn") { e.preventDefault(); login(); }
     if (e.target.id === "logoutBtn") { e.preventDefault(); logout(); }
+    if (e.target.id === "tokenBtn") { e.preventDefault(); connectToken(); }
+    if (e.target.id === "untokenBtn") { e.preventDefault(); adminToken = null; ls.set(TOKEN_KEY, null); sheet.close(); setSync("local"); toast("ยกเลิกการเชื่อมแล้ว"); }
   });
-  form.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "tokenIn") { e.preventDefault(); login(); } });
+  form.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "pinIn") { e.preventDefault(); login(); } });
   $("#modeChip").onclick = () => {
-    if (!canEdit() || syncState === "denied") return openLogin(syncState === "denied" ? "กุญแจเดิมใช้ไม่ได้แล้ว (อาจหมดอายุ) กรุณาใส่ใหม่" : "");
+    if (!canEdit()) return openLogin();
+    if (syncState === "denied" || localOnly()) return openSettings();
     if (syncState === "failed") return pushNow();
     pull();
   };
