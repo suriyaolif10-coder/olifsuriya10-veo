@@ -3,7 +3,7 @@
   "use strict";
 
   const STORE_KEY = "cdd-control-room-v1";
-  const APP_VER = "v25.11-f";
+  const APP_VER = "v25.11-g";
   const MAX_STAFF = 4;
 
   const STATUSES = [
@@ -19,6 +19,8 @@
   const FOCUS = [
     // CDD Focus ปีงบประมาณ 2570 — เริ่มรายงานครั้งแรก พ.ย. 2569
     { k: "f8", no: 0, code: "CDD Focus 2570", title: "ยกระดับการให้บริการ OTOP One Stop Service", owner: 3, ownerName: "นัทสึ", day: 25, start: "2026-11", kind: "oss" },
+    { k: "f9", no: 0, code: "CDD Focus 2570", title: "ทบทวนรายงานภาวะหนี้สิน (ศูนย์ข้อมูลกลาง)", owner: 1, ownerName: "ลีฟ", day: 27, once: "2026-11", oneOff: "debt-2026-11" },
+    { k: "f10", no: 0, code: "CDD Focus 2570", title: "โคก หนอง นา Next Step: คลิป Story Telling + ประชาสัมพันธ์ศูนย์เรียนรู้เพื่อการท่องเที่ยว", owner: 2, ownerName: "พราว", day: 30, once: "2026-11", oneOff: "knn-2026-11" },
   ];
   // งานเฉพาะครั้ง (ไม่ซ้ำทุกเดือน) ที่ได้รับแจ้งจากจังหวัด — once = เดือนที่ต้องทำ
   const ONE_OFF = [
@@ -64,7 +66,7 @@
     "2027-01": ["apply", 5], "2027-02": ["apply", 10], "2027-03": ["apply", 15],
     "2027-04": ["success", 70], "2027-05": ["success", 75], "2027-06": ["success", 80], "2027-07": ["success", 85], "2027-08": ["success", 90],
   };
-  const focusTitle = f => f.no ? `ประเด็นที่ ${f.no} (${f.code}) ${f.title}` : f.kind === "oss" ? `${f.code}: ${f.title}` : f.title;
+  const focusTitle = f => f.no ? `ประเด็นที่ ${f.no} (${f.code}) ${f.title}` : /^CDD Focus/.test(f.code) ? `${f.code}: ${f.title}` : f.title;
   const LEVELS = ["A", "B", "C", "D"];
   const LEVEL_SCORE = { A: 4, B: 3, C: 2, D: 1 };
   const LEVEL_COLOR = { A: "#37d67a", B: "#3da5ff", C: "#ffb43d", D: "#ff4d6a" };
@@ -90,12 +92,12 @@
     const R = (i, title, dueDay, focus) => ({ id: uid(), staffId: staff[i].id, title, dueDay, ...(focus ? { focus } : {}) });
     const F = k => { const f = FOCUS.find(x => x.k === k); return { ...R(f.owner, focusTitle(f), f.day, k), ...(f.start ? { start: f.start } : {}) }; };
     // เริ่มต้นเฉพาะงานที่ได้รับแจ้งจริง (งานเฉพาะครั้งเพิ่มใน migrate จาก ONE_OFF)
-    const reports = FOCUS.map(f => F(f.k));
+    const reports = FOCUS.filter(f => !f.once).map(f => F(f.k)); // งาน CDD Focus เฉพาะครั้งเพิ่มใน migrate จาก ONE_OFF
     const months = {};
     return {
       version: 1,
       office: { title: "ห้องคุมงาน สพอ.โนนสัง", sub: "สำนักงานพัฒนาชุมชนอำเภอโนนสัง · รายงานประจำเดือน" },
-      staff, reports, months, log: [], focusV: 2, namesV: 3, cleanV: 1,
+      staff, reports, months, log: [], focusV: 3, namesV: 3, cleanV: 1,
     };
   }
 
@@ -147,7 +149,8 @@
     ONE_OFF.forEach(t => {
       if (d.oneOff.includes(t.key)) return;
       const owner = d.staff.find(x => x.name === t.ownerName) || d.staff[t.owner] || d.staff[0];
-      if (owner) d.reports.push({ id: uid(), staffId: owner.id, title: t.title, dueDay: t.dueDay, once: t.once, desc: t.desc, link: t.link, ...(t.fields ? { fields: t.fields } : {}) });
+      const fo = FOCUS.find(f => f.oneOff === t.key);
+      if (owner) d.reports.push({ id: uid(), staffId: owner.id, title: fo ? focusTitle(fo) : t.title, dueDay: t.dueDay, once: t.once, desc: t.desc, link: t.link, ...(t.fields ? { fields: t.fields } : {}), ...(fo ? { focus: fo.k } : {}) });
       d.oneOff.push(t.key);
     });
     // ล้างรายงานชุดเก่า/ตัวอย่างออกทั้งหมด เหลือเฉพาะงานที่ได้รับแจ้งจริง (25 พ.ย. 69)
@@ -163,15 +166,24 @@
       d.focusV = 0;
       d.cleanV = 1;
     }
+    // งานเฉพาะครั้งทั้งหมดเป็น CDD Focus 2570 → ผูกกับประเด็นเน้นย้ำ (แสดงระดับ A–D และในหน้าสรุป)
+    if ((d.focusV || 0) < 3) {
+      FOCUS.filter(f => f.oneOff).forEach(f => {
+        const t = ONE_OFF.find(x => x.key === f.oneOff);
+        const r = t && d.reports.find(x => !x.focus && x.once === t.once && x.title === t.title);
+        if (r) { r.focus = f.k; r.title = focusTitle(f); }
+      });
+      if (d.focusV >= 2) { d.focusV = 3; return d; }
+    }
     if (d.focusV >= 2) return d;
     FOCUS.forEach(f => {
-      if (d.reports.some(r => r.focus === f.k)) return;
+      if (f.once || d.reports.some(r => r.focus === f.k)) return;
       const old = f.match && d.reports.find(r => !r.focus && r.title === f.match);
       if (old) { old.focus = f.k; old.title = focusTitle(f); return; }
       const owner = (f.ownerName && d.staff.find(x => x.name === f.ownerName)) || d.staff[f.owner] || d.staff[0];
       if (owner) d.reports.push({ id: uid(), staffId: owner.id, title: focusTitle(f), dueDay: f.day, focus: f.k, ...(f.start ? { start: f.start } : {}) });
     });
-    d.focusV = 2;
+    d.focusV = 3;
     return d;
   }
 
@@ -200,7 +212,7 @@
   // รายงานที่เริ่มทีหลัง (มี start) จะไม่นับในเดือนก่อนหน้า
   const isActive = r => r.once ? mk() === r.once : (!r.start || mk() >= r.start);
   const liveReports = () => state.reports.filter(r => isActive(r) && state.staff.some(s => s.id === r.staffId));
-  const focusActive = f => !f.start || mk() >= f.start;
+  const focusActive = f => f.once ? mk() === f.once : (!f.start || mk() >= f.start);
   const reportsOf = sid => state.reports.filter(r => r.staffId === sid && isActive(r)).sort((a, b) => a.dueDay - b.dueDay);
 
   function deskStatus(s) {
@@ -381,9 +393,9 @@
         <text x="${tx + tw / 2}" y="${ty + 112}" text-anchor="middle" font-family="Prompt" font-size="24" fill="${LEVEL_COLOR[l]}">${desc[l]}</text>`;
     }).join("");
     const by = y + 222, bx = x + 330, bw = w - 330 - 100;
-    return `<g class="desk-hit" data-focus-jump="1" tabindex="0" role="button" aria-label="ดูประเด็นเน้นย้ำ">
+    return `<g class="desk-hit" data-focus-jump="1" tabindex="0" role="button" aria-label="ดู CDD Focus">
       <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="18" fill="#0a1233" stroke="#3de0ff" stroke-opacity=".6" stroke-width="2"/>
-      <text x="${x + 22}" y="${y + 40}" font-family="Prompt" font-weight="600" font-size="26" fill="#bff4ff">ระดับประเด็นเน้นย้ำ · ${TH_MON[viewDate.getMonth()]} ${String(viewDate.getFullYear() + 543).slice(2)}</text>
+      <text x="${x + 22}" y="${y + 40}" font-family="Prompt" font-weight="600" font-size="26" fill="#bff4ff">ระดับ CDD Focus · ${TH_MON[viewDate.getMonth()]} ${String(viewDate.getFullYear() + 543).slice(2)}</text>
       ${tiles}
       <text x="${x + 22}" y="${by + 26}" font-family="Prompt" font-size="25" fill="#dbe4ff">รายงานประจำเดือน: ${pct}%</text>
       <rect x="${bx}" y="${by + 4}" width="${bw}" height="28" rx="14" fill="#14214f" stroke="#2a3b7d"/>
@@ -675,12 +687,12 @@
     }).join("");
 
     const ranked = rows.filter(x => x.r).slice().sort((a, b) => (LEVEL_SCORE[b.lv] || 0) - (LEVEL_SCORE[a.lv] || 0));
-    const rankItem = (x, i) => `<li><span class="rk-no">${i + 1}</span><span class="rk-t">${x.f.no ? `${x.f.no}. ` : ""}${esc(x.f.code)} <small>${esc(x.f.title)}</small></span><span class="rk-l" style="${x.lv ? `--lc:${LEVEL_COLOR[x.lv]}` : ""}">${x.lv || "–"}</span></li>`;
+    const rankItem = (x, i) => `<li><span class="rk-no">${i + 1}</span><span class="rk-t">${/^CDD Focus/.test(x.f.code) ? `<span class="t2">${esc(x.f.title)}</span>` : `${x.f.no ? `${x.f.no}. ` : ""}${esc(x.f.code)} <small>${esc(x.f.title)}</small>`}</span><span class="rk-l" style="${x.lv ? `--lc:${LEVEL_COLOR[x.lv]}` : ""}">${x.lv || "–"}</span></li>`;
     const urgent = rows.filter(x => x.r && (x.lv === "C" || x.lv === "D" || x.eff === "late"));
 
     $("#focus").innerHTML = `
       <div class="focus-head">
-        <div><h2>รายงานผลการดำเนินงานประเด็นเน้นย้ำ</h2>
+        <div><h2>รายงานผลการดำเนินงาน CDD Focus 2570</h2>
           <p class="small">ผลการดำเนินงานเดือน${TH_MONTHS[viewDate.getMonth()]} ${viewDate.getFullYear() + 543} · ปีงบประมาณ ${fy} · แตะการ์ดเพื่อบันทึกสถานะและระดับ</p></div>
         <div class="lv-count">${LEVELS.map(l => `<span style="--lc:${LEVEL_COLOR[l]}"><b>${l}</b>${counts[l]}</span>`).join("")}<span class="none"><b>–</b>${counts[""]}</span></div>
       </div>
@@ -730,7 +742,7 @@
       out.push(`เร่งรัดรายงานที่เกินกำหนด ${d.late.length} เรื่อง (${Object.entries(byStaff).map(([n, t]) => `${n} ${t.length} เรื่อง`).join(", ")}) ให้แล้วเสร็จโดยเร็ว`);
     }
     const low = d.focus.filter(x => x.lv === "C" || x.lv === "D");
-    if (low.length) out.push(`ประเด็นเน้นย้ำที่อยู่ระดับ C/D: ${low.map(x => x.f.no ? `ประเด็นที่ ${x.f.no} (${x.f.code})` : x.f.code).join(", ")} จะติดตามและให้คำแนะนำผู้รับผิดชอบอย่างใกล้ชิด`);
+    if (low.length) out.push(`งาน CDD Focus ที่อยู่ระดับ C/D: ${low.map(x => x.f.no ? `ประเด็นที่ ${x.f.no} (${x.f.code})` : x.f.title).join(", ")} จะติดตามและให้คำแนะนำผู้รับผิดชอบอย่างใกล้ชิด`);
     const noLv = d.focus.filter(x => x.r && !x.lv);
     if (noLv.length) out.push(`อยู่ระหว่างรอผลการประเมินระดับ ${noLv.length} ประเด็น`);
     if (!out.length) out.push("การรายงานเป็นไปตามกำหนด ไม่มีเรื่องค้างดำเนินการ");
@@ -790,7 +802,7 @@
       </section>
 
       <section>
-        <h2>2. ผลการดำเนินงานประเด็นเน้นย้ำ กรมการพัฒนาชุมชน</h2>
+        <h2>2. ผลการดำเนินงาน CDD Focus 2570 กรมการพัฒนาชุมชน</h2>
         <div class="lvsum">${LEVELS.map(l => `<span>${lvChip(l)} ${counts[l]} ประเด็น</span>`).join("")}</div>
         <div class="tbl-wrap"><table>
           <thead><tr><th>ที่</th><th>ประเด็น</th><th>ผู้รับผิดชอบ</th><th>สถานะรายงาน</th><th>ระดับ</th><th>แนวโน้ม ต.ค.–ก.ย.</th></tr></thead>
@@ -843,9 +855,9 @@
     L.push(((state.office.sub || "").split("·")[0].trim()) || "สำนักงานพัฒนาชุมชนอำเภอโนนสัง");
     L.push(``);
     L.push(`1) ภาพรวม: รายงาน ${d.all.length} เรื่อง ส่งแล้ว ${d.done} เรื่อง (ร้อยละ ${d.pct}) ตรวจสอบแล้ว ${d.ok} เรื่อง เกินกำหนด ${d.late.length} เรื่อง`);
-    L.push(`2) ประเด็นเน้นย้ำ:`);
+    L.push(`2) CDD Focus 2570:`);
     d.focus.forEach(x => {
-      L.push(`  - ${x.f.no ? `ประเด็นที่ ${x.f.no} (${x.f.code})` : x.f.code} ${x.f.title}: ระดับ ${x.lv || "-"}${x.owner ? ` (${x.owner.name})` : ""}`);
+      L.push(`  - ${x.f.no ? `ประเด็นที่ ${x.f.no} (${x.f.code}) ` : ""}${x.f.title}: ระดับ ${x.lv || "-"}${x.owner ? ` (${x.owner.name})` : ""}`);
       if (x.f.kind === "oss" && x.r) L.push(`      ${ossSummary(x.r)}`);
     });
     if (meta.budget) L.push(`  - ผลการเบิกจ่ายงบประมาณสะสม ร้อยละ ${meta.budget}`);
@@ -906,7 +918,7 @@
           const e = entry(r); const late = isLate(r);
           return `<div class="report ${late ? "is-late" : ""}" data-report="${esc(r.id)}">
             <div class="report-top">
-              <div><div class="report-title">${r.focus ? `<span class="focus-badge">เน้นย้ำ</span> ` : ""}${esc(r.title)}</div>
+              <div><div class="report-title">${r.focus ? `<span class="focus-badge">CDD Focus</span> ` : ""}${esc(r.title.replace(/^CDD Focus 2570: /, ""))}</div>
                 ${r.desc ? `<div class="report-desc">${esc(r.desc)}${r.link ? ` · <a href="${esc(r.link)}" target="_blank" rel="noopener">${r.link.includes("docs.google") ? "เปิดแบบรายงาน" : "เปิดระบบ"}</a>` : ""}</div>` : ""}
                 <div class="report-due">กำหนดส่ง ${fmtDue(r)} ${r.once ? "(งานเฉพาะครั้ง)" : `(ทุกวันที่ ${r.dueDay})`}${late ? ` · <span style="color:var(--s-late)">${esc(dueText(r))}</span>` : dueText(r) ? ` · ${esc(dueText(r))}` : ""}</div></div>
               <button type="button" class="mini-del" data-del="${esc(r.id)}" aria-label="ลบรายงาน ${esc(r.title)}">×</button>
@@ -1137,7 +1149,7 @@
     let r = state.reports.find(x => x.focus === k);
     if (!sid) { if (r) state.reports = state.reports.filter(x => x !== r); }
     else if (r) r.staffId = sid;
-    else state.reports.push({ id: uid(), staffId: sid, title: focusTitle(f), dueDay: f.day, focus: k, ...(f.start ? { start: f.start } : {}) });
+    else state.reports.push({ id: uid(), staffId: sid, title: focusTitle(f), dueDay: f.day, focus: k, ...(f.start ? { start: f.start } : {}), ...(f.once ? { once: f.once } : {}) });
     save(); renderAll(); toast("เปลี่ยนผู้รับผิดชอบแล้ว");
   });
   $("#openReport").onclick = openReport;

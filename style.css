@@ -428,3 +428,8 @@ body.viewer input:disabled, body.viewer select:disabled, body.viewer textarea:di
 .login-steps { margin: 6px 0 0; padding-left: 20px; line-height: 1.6; }
 .login-steps a { color: #3dc6ff; }
 @media (max-width: 640px) { .mode-chip { margin: 4px 0 0; } }
+.rank { min-width: 0; }
+.rk li { grid-template-columns: 22px minmax(0, 1fr) 28px; }
+.rk li.empty { display: block; color: var(--muted); }
+.rk-t { min-width: 0; }
+.rk-t .t2 { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
