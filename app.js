@@ -1188,9 +1188,10 @@
   const authHeaders = () => adminToken ? { Authorization: `Bearer ${adminToken}` } : {};
 
   // อ่านไฟล์จาก raw.githubusercontent.com (ไม่ติดโควตา API 60 ครั้ง/ชม. ของผู้ไม่ได้ล็อกอิน)
-  const RAW = `https://raw.githubusercontent.com/${REPO}/${BRANCH}/`;
+  const RAW = `https://raw.githubusercontent.com/${REPO}/refs/heads/${BRANCH}/`;
   async function fetchRaw(path) {
-    const res = await fetch(`${RAW}${path}?t=${Date.now()}`, { cache: "no-store" });
+    const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 10000);
+    const res = await fetch(`${RAW}${path}?t=${Date.now()}`, { cache: "no-store", signal: ctl.signal }).finally(() => clearTimeout(tm));
     if (res.status === 404) return null;
     if (!res.ok) throw new Error("HTTP " + res.status);
     return { sha: null, data: JSON.parse(await res.text()) };
